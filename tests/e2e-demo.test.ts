@@ -16,7 +16,7 @@ interface TurnBody {
 
 let server: Awaited<ReturnType<typeof startServer>>;
 
-async function say(speaker: "A" | "B", text: string) {
+async function say(speaker: string, text: string) {
   const response = await fetch(`${server.url}/api/alexa/turn`, {
     method: "POST",
     headers: { "content-type": "application/json" },

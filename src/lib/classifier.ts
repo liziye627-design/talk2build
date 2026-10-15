@@ -6,6 +6,7 @@ export interface ClassifyInput {
   text: string;
   speaker: SpeakerId;
   pending: PendingConfirm | null;
+  scenario?: "general" | "incident";
 }
 
 function plan(
@@ -40,17 +41,24 @@ function isReject(text: string) {
   return /^(no|nope|nah|don't|do not|cancel|别|先别|不用)[!！.。\s]*$/i.test(text.trim());
 }
 
+function isYes(value: string) {
+  return /^(yes|yeah|yep|sure|ok|okay|go ahead|do it)[.!]?$/i.test(value);
+}
+
 function isAffirmative(text: string, action: string) {
   const value = text.trim();
   if (action === "diff_fetch") {
     return /pull( the)? (diff|it)/i.test(value) || /^(yes|yeah|yep|sure|ok|okay)([, ]+pull it)?[.!]?$/i.test(value);
   }
   if (action === "pr_draft") {
-    return /open( the)? (pr|pull request)/i.test(value) || /^(yes|yeah|yep|sure|ok|okay|go ahead|do it)[.!]?$/i.test(value);
+    return /open( the)? (pr|pull request)/i.test(value) || isYes(value);
   }
   if (action === "write_doc") {
-    return /write (it|that|the doc)/i.test(value) || /^(yes|yeah|yep|sure|ok|okay|go ahead|do it)[.!]?$/i.test(value);
+    return /write (it|that|the doc)/i.test(value) || isYes(value);
   }
+  if (action === "create_issues") return /create (the )?issues/i.test(value) || isYes(value);
+  if (action === "scaffold_code") return /\bscaffold\b/i.test(value) || isYes(value);
+  if (action === "run_tests") return /run (the )?tests/i.test(value) || isYes(value);
   return false;
 }
 
@@ -78,8 +86,12 @@ function cleanItem(value: string) {
   return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
 }
 
-function isRootCause(text: string) {
-  return /root cause/i.test(text) || /drained the redis pool/i.test(text);
+function incidentContext(input: ClassifyInput) {
+  return input.scenario !== "general";
+}
+
+function isIncidentRootCause(text: string) {
+  return /that'?s the root cause/i.test(text) && /redis pool/i.test(text);
 }
 
 function isDecisionPhrase(text: string) {
@@ -117,6 +129,34 @@ export function classifyUtterance(input: ClassifyInput): Classification {
   }
 
   if (pending && isAffirmative(text, pending.action)) {
+    if (pending.action === "create_issues") {
+      return plan(
+        "confirm",
+        "Create issues from the action items",
+        [...heard(speaker, text, "confirm"), { name: "create_issues", arguments: pending.payload ?? {} }],
+        "Issues created from the open action items.",
+      );
+    }
+    if (pending.action === "scaffold_code") {
+      return plan(
+        "confirm",
+        "Scaffold the workspace and run tests",
+        [
+          ...heard(speaker, text, "confirm"),
+          { name: "scaffold_code", arguments: pending.payload ?? {} },
+          { name: "run_tests", arguments: {} },
+        ],
+        "Scaffold is on disk and the tests have been run.",
+      );
+    }
+    if (pending.action === "run_tests") {
+      return plan(
+        "confirm",
+        "Run the workspace tests",
+        [...heard(speaker, text, "confirm"), { name: "run_tests", arguments: pending.payload ?? {} }],
+        "Tests have been run.",
+      );
+    }
     if (pending.action === "diff_fetch") {
       return plan(
         "confirm",
@@ -138,6 +178,9 @@ export function classifyUtterance(input: ClassifyInput): Classification {
         ],
         REPLIES.pr,
       );
+    }
+    if (pending.action !== "write_doc") {
+      return plan("confirm", "Confirmation did not match a known action", heard(speaker, text, "confirm"), "I still need a clearer yes.", 0.4);
     }
     const payload = pending.payload ?? {};
     return plan(
@@ -193,7 +236,7 @@ export function classifyUtterance(input: ClassifyInput): Classification {
     );
   }
 
-  if (isRootCause(text)) {
+  if (incidentContext(input) && isIncidentRootCause(text)) {
     return plan(
       "decision",
       ROOT_CAUSE,
@@ -210,6 +253,27 @@ export function classifyUtterance(input: ClassifyInput): Classification {
         },
       ],
       REPLIES.decision,
+    );
+  }
+
+  if (/root cause/i.test(text)) {
+    const prompt = `Decision logged: ${text}. Want me to write it into the doc?`;
+    return plan(
+      "decision",
+      text,
+      [
+        ...heard(speaker, text, "decision"),
+        { name: "decision_record", arguments: { speaker, text } },
+        {
+          name: "confirm_ask",
+          arguments: {
+            action: "write_doc",
+            prompt,
+            payload: { title: "Decision note", body: text },
+          },
+        },
+      ],
+      prompt,
     );
   }
 
@@ -235,7 +299,7 @@ export function classifyUtterance(input: ClassifyInput): Classification {
     );
   }
 
-  if (/batch job|reconciliation|deployed last night|wasn'?t there a .*deploy/i.test(text)) {
+  if (incidentContext(input) && /batch job|reconciliation|deployed last night|wasn'?t there a .*deploy/i.test(text)) {
     return plan(
       "deploy_query",
       "Look up the reconciliation deploy",
@@ -251,7 +315,7 @@ export function classifyUtterance(input: ClassifyInput): Classification {
     );
   }
 
-  if (/redis/i.test(text) && /(connection|grafana|climb|pressure|2:15|02:15)/i.test(text)) {
+  if (incidentContext(input) && /redis/i.test(text) && /(connection|grafana|climb|pressure|2:15|02:15)/i.test(text)) {
     return plan(
       "correlation",
       "Redis pressure preceded the errors",
@@ -280,7 +344,11 @@ export function classifyUtterance(input: ClassifyInput): Classification {
     );
   }
 
-  if (/pagerduty|orders? (service|api)|500s?|error/i.test(text) && /(2:17|02:17|spiked|40%|woke)/i.test(text)) {
+  if (
+    incidentContext(input) &&
+    /pagerduty|orders? (service|api)|500s?|error/i.test(text) &&
+    /(2:17|02:17|spiked|40%|woke)/i.test(text)
+  ) {
     return plan(
       "event",
       "02:17 orders API 500 40%",

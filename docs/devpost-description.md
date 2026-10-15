@@ -8,9 +8,9 @@
 
 ## What it does
 
-Talk2Build is the meeting where the work gets done. Alexa+ sits in a working session, and by the time the room stands up there is a timeline, a decision, a doc, and a draft pull request.
+Talk2Build is the desk where the work gets done. You describe an outcome. The agent shows the plan, runs MCP tools, and leaves real files in a workspace. A meeting is one of those tasks: Alexa+ listens, and when the room ends the minutes show up on the same thread.
 
-The demo is a postmortem. Last night at 2:17 AM the orders service started returning 500s. This morning two engineers talk it through. Talk2Build is listening.
+The 2:17 AM orders postmortem is one scripted mode, not the whole product. Open it from Incident demo. The home page is a task: yesterday's decision, issues from the action items, a spec, a scaffold with tests, or a live room.
 
 - Real work and chatter are not the same thing. “记一下” and “就这么定了” act immediately. Lunch talk is parked in a chatter column and never enters the requirement pool. Alexa+ stays quiet.
 - Every requirement remembers who said it. The demo labels speakers A and B. Voiceprints can come later.
@@ -28,9 +28,9 @@ Each utterance is planned by a pluggable model layer:
 - **Amazon Bedrock** Converse, for the AWS Builder mini challenge.
 - **An OpenAI-compatible endpoint**, defaulting to Nebius Token Factory and `nvidia/Nemotron-3_5-Lightning`, so the same project can be shown on the Nebius x NVIDIA track.
 
-The plan is a list of MCP tool calls: ingest, classify, timeline, correlate, deploy lookup, diff, decision, confirm, todos, doc, scaffold, pull request, tests, progress. The server holds the 2:17 AM fixtures: the 11:40 PM deploy of batch-reconcile v2.3, Redis connections climbing at 2:15, and a diff that shrinks `max_connections` from 50 to 20 and drops the command timeout. The fix PR touches three files. The test runner checks those files and comes back green.
+The plan is a list of MCP tool calls. Meetings, tasks, and artifacts persist in SQLite. Incident meetings still use the 2:17 AM fixtures: batch-reconcile v2.3 at 11:40 PM, Redis climbing at 2:15, and a diff that shrinks `max_connections` from 50 to 20 and drops the command timeout. Any other meeting writes real markdown, scaffolds files into a workspace, and runs `node --test`. Large actions wait for a yes.
 
-The web app is three columns: the live transcript, the timeline plus the decision and requirement pool (chatter sits underneath, visually out of that pool), and the diff / pull request.
+The desk is a task thread with a plan, tool cards, and an artifact monitor. The meeting room is a separate screen: participant tiles, mic, captions, and the live pool. Ending the meeting writes minutes back to the task.
 
 ## What to submit alongside this text
 

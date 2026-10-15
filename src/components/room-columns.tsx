@@ -32,7 +32,7 @@ export function TranscriptColumn({ state }: { state: MeetingState }) {
     <Column kicker="01  Live" title="Transcript" testId="transcript">
       {state.transcript.length === 0 ? (
         <p className="text-sm leading-6 text-[#9aa3b2]">
-          The room is quiet. Play the 2:17 AM postmortem, unmute the microphone, or type a line.
+          The room is quiet. Unmute a microphone, type a line, or play the incident script when this is the 2:17 AM review.
         </p>
       ) : (
         state.transcript.map((line) => (

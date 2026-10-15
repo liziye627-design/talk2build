@@ -1,0 +1,6 @@
+import { handleIncidentLaunch } from "@/server/product";
+
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
+export const POST = handleIncidentLaunch;

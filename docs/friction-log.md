@@ -42,7 +42,17 @@ Severity is what I would have put on the Devpost form. These are from building T
 - **Workaround:** Tests cover the missing session, the bad protocol version, JSON, and SSE.
 - **Suggestion:** The quickstart should show one successful `curl` for `initialize` and one for `tools/call`, headers included.
 
-## 5. Web Speech API is not the Alexa+ microphone
+## 5. Node’s built-in SQLite is still experimental
+
+- **Task:** Persist meetings and tasks without adding a native addon.
+- **Steps:** Used `node:sqlite` `DatabaseSync` on Node 22. It throws unless the process starts with `--experimental-sqlite`.
+- **Expected:** A stable built-in so `npm run dev` can be a plain Next command.
+- **Actual:** The flag has to be in `NODE_OPTIONS` before the process starts. Setting it inside the app is too late. Vitest needs the same flag.
+- **Severity:** Low.
+- **Workaround:** The npm scripts set `NODE_OPTIONS=--experimental-sqlite`. Tests use a temp `TALK2BUILD_HOME` so they do not wipe the dev database.
+- **Suggestion:** Ship SQLite in Node without the experimental gate, or document the flag next to the `node:sqlite` example.
+
+## 6. Web Speech API is not the Alexa+ microphone
 
 - **Task:** Take a real microphone in the browser demo, with a scripted fallback for the video.
 - **Steps:** Used `SpeechRecognition` / `webkitSpeechRecognition` and `speechSynthesis` for the reply.

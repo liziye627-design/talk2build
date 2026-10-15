@@ -13,6 +13,10 @@ export function buildProgressReport(state: MeetingState): string {
       ? "tests passing"
       : "tests failing";
 
+  if (state.scenario !== "incident" && !state.pullRequest && requirements === 0 && decisions === 0) {
+    return `Progress: ${state.transcript.length} lines in, ${todos} action items, no decision yet.`;
+  }
+
   if (!state.pullRequest && requirements === 0 && decisions === 0) {
     const deploy = state.deploy
       ? `${state.deploy.service} ${state.deploy.version} is the deploy to inspect`

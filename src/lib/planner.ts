@@ -22,8 +22,11 @@ export function summarizeMeeting(state: MeetingState) {
   ].join("; ");
 }
 
-export async function planTurn(input: ClassifyInput & { stateSummary: string }): Promise<TurnPlan> {
-  const provider = createProvider();
+export async function planTurn(
+  input: ClassifyInput & { stateSummary: string },
+  providerId?: string,
+): Promise<TurnPlan> {
+  const provider = createProvider(providerId);
   try {
     const classification = await provider.plan(input);
     return { classification, provider: provider.id, model: provider.model, degraded: false };

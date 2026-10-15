@@ -2,15 +2,15 @@
   "name": "talk2build",
   "version": "1.0.0",
   "private": true,
-  "description": "Voice-native meeting agent. Alexa+ listens, and the work lands as a doc, a diff, and a pull request.",
+  "description": "Task-and-meeting agent. Alexa+ listens, the MCP server does the work, and the files land in the workspace.",
   "license": "MIT",
   "scripts": {
-    "dev": "next dev -p 43123 -H 0.0.0.0",
+    "dev": "NODE_OPTIONS='--experimental-sqlite' next dev -p 43123 -H 0.0.0.0",
     "build": "next build",
-    "start": "next start -p 43123 -H 0.0.0.0",
+    "start": "NODE_OPTIONS='--experimental-sqlite' next start -p 43123 -H 0.0.0.0",
     "lint": "eslint",
-    "test": "vitest run",
-    "mcp": "tsx src/server/standalone.ts"
+    "test": "NODE_OPTIONS='--experimental-sqlite' vitest run",
+    "mcp": "NODE_OPTIONS='--experimental-sqlite' tsx src/server/standalone.ts"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.1152.0",

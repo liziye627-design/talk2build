@@ -1,38 +1,39 @@
 # Shot list
 
-Target: at or under 3:00, English, public on YouTube or Vimeo. No third-party music. Lead with the incident, not the architecture.
+Target: at or under 3:00, English, public on YouTube or Vimeo. No third-party music. Open on the task desk, then a live meeting, then the 2:17 AM script as one scene.
 
-Record the web app with **Play demo**. Mock mode is the right take: it is deterministic and it matches these lines. If a browser voice is available, leave TTS on. Cut the title card to about three seconds.
+Mock mode is the right take. If a browser voice is available, leave TTS on for the incident scene.
 
 | Time | Picture | Spoken or on-screen line |
 | --- | --- | --- |
-| 0:00–0:08 | Title card on the dark room. Wordmark visible. | “Last night, 2:17 AM. The orders service went down. This morning, two engineers hold a post-mortem. Talk2Build is listening.” |
-| 0:08–0:22 | Left column. Speaker A’s line types in. Timeline gains 02:17. Alexa+ caption. | A: “PagerDuty woke me at 2:17. Order service 500s spiked to 40%.” Alexa+: “Logged. 2:17 AM, orders API, 40% errors.” |
-| 0:22–0:38 | Middle column. 02:15 appears above 02:17 with the link and the Redis sparkline. | B: “I checked Grafana. Redis connections started climbing at 2:15 — two minutes before the errors.” Alexa+: “Correlated: Redis pressure started two minutes before the errors.” |
-| 0:38–0:52 | Right column. Deploy card: batch-reconcile v2.3, 11:40 PM. | A: “Wasn’t there a batch job deployed last night? The reconciliation one?” Alexa+: “Found it — batch-reconcile v2.3 deployed at 11:40 PM. Want me to pull the diff?” |
-| 0:52–1:08 | Diff. `max_connections` 50 → 20 and the deleted `command_timeout_ms` highlighted. | B: “Yes, pull it.” Alexa+: “The diff shows the pool was shrunk from 50 to 20 connections, and no timeout was set.” |
-| 1:08–1:26 | Decision and the three requirements in the pool. Doc title appears. Alexa+ waits. | A: “That’s the root cause. The job drained the Redis pool.” Alexa+: “Root cause logged. I’m drafting the fix PR — pool rollback, timeouts, and a pool-exhaustion alert. Say the word and I’ll open it.” |
-| 1:26–1:36 | Chatter column. Nothing new in the requirement pool. No Alexa+ line. | B: “Did anyone order lunch yet? I’m starving.” Hold on the silence. |
-| 1:36–1:50 | Two todos. A progress line in the footer. | A: “Action items: add the pool alert, and put the job behind a feature flag.” Alexa+: “Two action items captured.” Then the progress line. |
-| 1:50–2:15 | PR tab. Three files type in. Four green tests. | B: “Okay, open the PR.” Alexa+: “PR draft ready. Three files changed, tests passing.” |
-| 2:15–2:28 | Optional insert, only if you have the seconds. Hit **Stop / 不对** after a stray line and show the rollback question. | Alexa+: “Rolled back to the last checkpoint. What do you want instead?” |
-| 2:28–2:45 | End card. | “The meeting ended. So did the bug.” Then: “Talk2Build — the meeting where the work gets done.” |
-| 2:45–3:00 | If you still have room: the footer trace (`ingest_transcript`, `timeline_correlate`, `pr_draft`, `run_tests`) and the MCP 2025-11-25 badge. One sentence on Alexa+ calling the server. | “Alexa+ is the voice. The MCP server does the work.” |
+| 0:00–0:12 | Task desk, empty state. Click “What did we decide yesterday?” Tool card and the decision in the reply. Task monitor shows the plan. | “Ask it what you decided. It searches the meetings, not a script.” |
+| 0:12–0:28 | “Turn yesterday's action items into issues”, then yes. Artifact preview of `issues/`. | “Action items become files. It waits for a yes.” |
+| 0:28–0:48 | Start a planning meeting. Tiles, captions, requirement pool. End the meeting. Minutes on the task. | “The room ends. The minutes are already on the task.” |
+| 0:48–0:56 | Incident demo. The postmortem room, Priya and Jordan. | “Last night, 2:17 AM. The orders service went down.” |
+| 0:56–1:12 | Captions and the pool. 02:17 lands, then 02:15 links to it. | “Logged. 2:17 AM…” then “Correlated: Redis pressure started two minutes before the errors.” |
+| 1:12–1:32 | Diff panel. Deploy card v2.3 at 11:40 PM. Red lines for 50 to 20 and the missing timeout. | “Found it — batch-reconcile v2.3… The diff shows the pool was shrunk from 50 to 20.” |
+| 1:32–1:52 | Pool: the decision, three requirements, lunch only in chatter, two action items. | “Root cause logged… Two action items captured.” Hold on the lunch line. |
+| 1:52–2:12 | Diff panel. Three files, four green tests. | “PR draft ready. Three files changed, tests passing.” |
+| 2:12–2:36 | End the meeting. Minutes mention the root cause. Back on the task, the minutes are in the thread. | “The meeting ended. So did the bug.” |
+| 2:36–3:00 | Task monitor with the tools that ran. | “Alexa+ is the voice. The MCP server does the work.” |
 
 Do not show a terminal, a README, or a settings page. Judges are not required to watch past three minutes.
 
 ## What “good” looks like in frame
 
-- Speaker chips A and B, and Alexa+ as its own voice.
+- The task desk, not a meeting console, as the first frame.
+- A tool card and a plan in the task monitor.
+- An issue file preview after a yes.
+- Participant tiles, captions, and the requirement pool.
 - 02:15 linked to 02:17.
 - The deploy card reading v2.3 and 11:40 PM.
-- The red diff lines for 50 → 20 and the missing timeout.
+- The red diff lines for 50 to 20 and the missing timeout.
 - Lunch in chatter, not in the requirement list.
 - Three files and four passing tests.
-- One progress line, spoken or on screen.
+- Minutes posted back on the task.
 
 ## Capture notes
 
-- Window at 1440×900 or larger so all three columns are on screen. The layout stacks behind tabs below that width; the video should be the desktop layout.
-- Run `npm run dev` and use Play demo rather than typing the beats live, unless you want the microphone as a second five-second insert.
-- Mock mode badge should be visible, or switch the corner chip to Bedrock only if you have actually configured a key and checked a turn.
+- Window at 1440×900 or larger. Below that, the task monitor and the meeting pool sit behind the main column.
+- Run `npm run dev` and use the suggestion chips plus **Play the 2:17 script**. Do not type the incident beats live unless you want a five-second microphone insert.
+- The model chip should say Mock, unless you have actually configured Bedrock or Nebius and checked a turn.

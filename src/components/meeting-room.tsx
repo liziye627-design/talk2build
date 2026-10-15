@@ -8,8 +8,9 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DiffColumn, PoolColumn, TranscriptColumn } from "@/components/room-columns";
 import { DEMO_SCRIPT } from "@/lib/demo-script";
-import type { MeetingState, SpeakerId } from "@/lib/types";
 import { isInterrupt } from "@/lib/classifier";
+import { emptyMeeting } from "@/lib/meeting-defaults";
+import type { MeetingState, SpeakerId } from "@/lib/types";
 
 interface TurnResponse {
   reply: string | null;
@@ -28,29 +29,6 @@ interface PublicConfig {
   model: string | null;
   protocol: string;
 }
-
-const emptyMeeting: MeetingState = {
-  id: "demo",
-  title: "Orders service postmortem",
-  incidentDate: "2026-10-15",
-  seq: 0,
-  transcript: [],
-  timeline: [],
-  decisions: [],
-  requirements: [],
-  todos: [],
-  chatter: [],
-  deploy: null,
-  incidentDiff: null,
-  scaffold: null,
-  pullRequest: null,
-  docs: [],
-  pending: null,
-  progress: [],
-  toolTrace: [],
-  substantiveTurns: 0,
-  updatedAt: "",
-};
 
 function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -106,7 +84,7 @@ function speak(text: string) {
 }
 
 export function MeetingRoom() {
-  const [state, setState] = useState<MeetingState>(emptyMeeting);
+  const [state, setState] = useState<MeetingState>(emptyMeeting("demo"));
   const [speaker, setSpeaker] = useState<SpeakerId>("A");
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);

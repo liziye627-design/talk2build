@@ -8,8 +8,8 @@
         "name": {
           "value": "Talk2Build"
         },
-        "shortDescription": "Listens to a working session and turns decisions into a doc, a diff, and a pull request.",
-        "fullDescription": "Talk2Build is the meeting where the work gets done. Alexa+ listens to a postmortem or a planning session, classifies each utterance as an event, decision, requirement, action item, or chatter, and calls a self-hosted MCP server. Chatter stays out of the requirement pool. Docs are written immediately. A pull request waits until someone says yes. Say stop or 不对 to roll back to the last checkpoint.",
+        "shortDescription": "Listens to a working session and turns it into notes, issues, code, and a pull request.",
+        "fullDescription": "Talk2Build is a task desk with a meeting room. Alexa+ listens, classifies each utterance, and calls a self-hosted MCP server. Chatter stays out of the requirement pool. Docs are written immediately. Scaffolding, issues, and pull requests wait for a yes. Say stop or 不对 to roll back to the last checkpoint. When the meeting ends, the minutes land on the task.",
         "examplePhrases": [
           "Talk2Build, we're in the postmortem",
           "Log that as the root cause",

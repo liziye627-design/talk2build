@@ -1,3 +1,5 @@
+import { loadMeeting, saveMeeting, wipeDb } from "@/lib/db";
+import { emptyMeeting } from "@/lib/meeting-defaults";
 import type {
   ChatterItem,
   Decision,
@@ -21,30 +23,7 @@ function now() {
   return new Date().toISOString();
 }
 
-export function emptyMeeting(id = "demo"): MeetingState {
-  return {
-    id,
-    title: "Orders service postmortem",
-    incidentDate: "2026-10-15",
-    seq: 0,
-    transcript: [],
-    timeline: [],
-    decisions: [],
-    requirements: [],
-    todos: [],
-    chatter: [],
-    deploy: null,
-    incidentDiff: null,
-    scaffold: null,
-    pullRequest: null,
-    docs: [],
-    pending: null,
-    progress: [],
-    toolTrace: [],
-    substantiveTurns: 0,
-    updatedAt: now(),
-  };
-}
+export { emptyMeeting };
 
 interface StoreGlobal {
   __talk2buildStore?: MeetingStore;
@@ -57,9 +36,16 @@ export class MeetingStore {
   ensure(id = "demo"): MeetingState {
     const existing = this.meetings.get(id);
     if (existing) return existing;
+    const loaded = loadMeeting(id);
+    if (loaded) {
+      this.meetings.set(id, loaded.state);
+      this.checkpoints.set(id, loaded.checkpoints);
+      return loaded.state;
+    }
     const created = emptyMeeting(id);
     this.meetings.set(id, created);
     this.checkpoints.set(id, []);
+    this.persist(id);
     return created;
   }
 
@@ -71,7 +57,15 @@ export class MeetingStore {
     const created = emptyMeeting(id);
     this.meetings.set(id, created);
     this.checkpoints.set(id, []);
+    this.persist(id);
     return created;
+  }
+
+  adopt(state: MeetingState) {
+    this.meetings.set(state.id, state);
+    if (!this.checkpoints.has(state.id)) this.checkpoints.set(state.id, []);
+    this.persist(state.id);
+    return state;
   }
 
   checkpoint(id = "demo") {
@@ -79,19 +73,31 @@ export class MeetingStore {
     const stack = this.checkpoints.get(id) ?? [];
     stack.push(snap);
     this.checkpoints.set(id, stack);
+    this.persist(id);
   }
 
   rollback(id = "demo"): { restored: boolean } {
     const stack = this.checkpoints.get(id) ?? [];
     const snap = stack.pop();
     this.checkpoints.set(id, stack);
-    if (!snap) return { restored: false };
+    if (!snap) {
+      this.persist(id);
+      return { restored: false };
+    }
     this.meetings.set(id, snap);
+    this.persist(id);
     return { restored: true };
+  }
+
+  persist(id: string) {
+    const state = this.meetings.get(id);
+    if (!state) return;
+    saveMeeting(state, this.checkpoints.get(id) ?? []);
   }
 
   private touch(state: MeetingState) {
     state.updatedAt = now();
+    this.persist(state.id);
   }
 
   private nextId(state: MeetingState, prefix: string) {
@@ -311,6 +317,13 @@ export function getStore(): MeetingStore {
 }
 
 export function resetStore() {
+  wipeDb();
+  const g = globalThis as typeof globalThis & StoreGlobal;
+  g.__talk2buildStore = new MeetingStore();
+  return g.__talk2buildStore;
+}
+
+export function reopenStore() {
   const g = globalThis as typeof globalThis & StoreGlobal;
   g.__talk2buildStore = new MeetingStore();
   return g.__talk2buildStore;

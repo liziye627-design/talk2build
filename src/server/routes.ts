@@ -4,7 +4,7 @@ import { enqueue } from "@/lib/mutex";
 import { getStore } from "@/lib/meeting-store";
 import { planTurn, summarizeMeeting } from "@/lib/planner";
 import { providerPublicConfig } from "@/lib/llm";
-import type { PlannedTool, SpeakerId } from "@/lib/types";
+import type { PlannedTool } from "@/lib/types";
 import { PROTOCOL_VERSION } from "@/lib/types";
 import {
   authorizationServerMetadata,
@@ -114,7 +114,7 @@ async function runTurn(request: Request) {
   const speaker = body.speaker;
   const meetingId = typeof body.meetingId === "string" && body.meetingId.trim() ? body.meetingId.trim() : "demo";
   if (!text) return json({ error: "Utterance text is required." }, 400);
-  if (speaker !== "A" && speaker !== "B") return json({ error: "Speaker must be A or B." }, 400);
+  if (typeof speaker !== "string" || !speaker.trim()) return json({ error: "Speaker is required." }, 400);
 
   const store = getStore();
   const meeting = store.ensure(meetingId);
@@ -122,9 +122,10 @@ async function runTurn(request: Request) {
   try {
     planned = await planTurn({
       text,
-      speaker,
+      speaker: speaker.trim(),
       pending: meeting.pending,
       stateSummary: summarizeMeeting(meeting),
+      scenario: meeting.scenario,
     });
   } catch (error) {
     return json({ error: error instanceof Error ? error.message : "Planner failed." }, 502);
@@ -212,7 +213,7 @@ async function runTurn(request: Request) {
       provider: planned.provider,
       model: planned.model,
       degraded: planned.degraded,
-      speaker: speaker as SpeakerId,
+      speaker: speaker.trim(),
     });
   } catch (error) {
     return json({ error: error instanceof Error ? error.message : "Alexa+ could not reach the MCP server." }, 502);
@@ -230,6 +231,61 @@ export async function routeHttp(request: Request): Promise<Response> {
   if (pathname === "/api/meeting" && request.method === "GET") return handleMeetingGet();
   if (pathname === "/api/meeting/reset" && request.method === "POST") return handleMeetingReset();
   if (pathname === "/api/alexa/turn" && request.method === "POST") return handleTurn(request);
+  if (pathname === "/api/bootstrap" && request.method === "GET") {
+    const { handleBootstrap } = await import("@/server/product");
+    return handleBootstrap();
+  }
+  if (pathname === "/api/threads" && (request.method === "GET" || request.method === "POST")) {
+    const { handleThreads } = await import("@/server/product");
+    return handleThreads(request);
+  }
+  if (pathname === "/api/meetings" && request.method === "GET") {
+    const { handleMeetingsGet } = await import("@/server/product");
+    return handleMeetingsGet();
+  }
+  if (pathname === "/api/meetings" && request.method === "POST") {
+    const { handleMeetingsPost } = await import("@/server/product");
+    return handleMeetingsPost(request);
+  }
+  if (pathname === "/api/meetings/incident" && request.method === "POST") {
+    const { handleIncidentLaunch } = await import("@/server/product");
+    return handleIncidentLaunch();
+  }
+  const threadMessage = pathname.match(/^\/api\/threads\/([^/]+)\/messages$/);
+  if (threadMessage && request.method === "POST") {
+    const { handleThreadMessage } = await import("@/server/product");
+    return handleThreadMessage(request, decodeURIComponent(threadMessage[1] || ""));
+  }
+  const threadGet = pathname.match(/^\/api\/threads\/([^/]+)$/);
+  if (threadGet && request.method === "GET") {
+    const { handleThreadGet } = await import("@/server/product");
+    return handleThreadGet(decodeURIComponent(threadGet[1] || ""));
+  }
+  const meetingAction = pathname.match(/^\/api\/meetings\/([^/]+)\/(join|utterance|mic|end)$/);
+  if (meetingAction) {
+    const id = decodeURIComponent(meetingAction[1] || "");
+    const action = meetingAction[2];
+    const product = await import("@/server/product");
+    if (action === "join" && request.method === "POST") return product.handleMeetingJoin(request, id);
+    if (action === "mic" && request.method === "POST") return product.handleMeetingMic(request, id);
+    if (action === "end" && request.method === "POST") return product.handleMeetingEnd(id);
+    if (action === "utterance" && request.method === "POST") {
+      const body = (await request.json()) as Record<string, unknown>;
+      const payload = { ...body, meetingId: id };
+      return handleTurn(new Request(request.url, { method: "POST", headers: request.headers, body: JSON.stringify(payload) }));
+    }
+  }
+  const meetingGet = pathname.match(/^\/api\/meetings\/([^/]+)$/);
+  if (meetingGet && request.method === "GET") {
+    const { handleMeetingGet } = await import("@/server/product");
+    return handleMeetingGet(decodeURIComponent(meetingGet[1] || ""));
+  }
+  const workspaceFile = pathname.match(/^\/api\/workspaces\/([^/]+)\/file$/);
+  if (workspaceFile && request.method === "GET") {
+    const { handleWorkspaceFile } = await import("@/server/product");
+    const url = new URL(request.url);
+    return handleWorkspaceFile(decodeURIComponent(workspaceFile[1] || ""), url.searchParams.get("path") || "");
+  }
   if (pathname === "/.well-known/oauth-protected-resource") return handleProtectedResource(request);
   if (pathname === "/.well-known/oauth-authorization-server") return handleAuthorizationServer(request);
   if (pathname === "/oauth/authorize") return handleAuthorize(request);

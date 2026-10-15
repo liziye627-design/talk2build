@@ -1,6 +1,10 @@
 export const PROTOCOL_VERSION = "2025-11-25";
 
-export type SpeakerId = "A" | "B";
+export type SpeakerId = string;
+
+export type MeetingScenario = "general" | "incident";
+
+export type MeetingStatus = "scheduled" | "live" | "ended";
 
 export type UtteranceKind =
   | "event"
@@ -119,7 +123,27 @@ export interface DocRecord {
   at: string;
 }
 
-export type ConfirmAction = "diff_fetch" | "pr_draft" | "write_doc";
+export type ConfirmAction =
+  | "diff_fetch"
+  | "pr_draft"
+  | "write_doc"
+  | "create_issues"
+  | "scaffold_code"
+  | "run_tests";
+
+export interface Participant {
+  id: string;
+  name: string;
+  label: string;
+  micOn: boolean;
+  present: boolean;
+}
+
+export interface MeetingSummary {
+  title: string;
+  minutes: string;
+  at: string;
+}
 
 export interface PendingConfirm {
   id: string;
@@ -145,6 +169,13 @@ export interface MeetingState {
   id: string;
   title: string;
   incidentDate: string;
+  scenario: MeetingScenario;
+  status: MeetingStatus;
+  joinCode: string;
+  workspaceId: string;
+  threadId: string | null;
+  participants: Participant[];
+  summary: MeetingSummary | null;
   seq: number;
   transcript: TranscriptEntry[];
   timeline: TimelineEvent[];

@@ -1,5 +1,5 @@
-import { MeetingRoom } from "@/components/meeting-room";
+import { Workbench } from "@/components/workbench";
 
 export default function HomePage() {
-  return <MeetingRoom />;
+  return <Workbench />;
 }

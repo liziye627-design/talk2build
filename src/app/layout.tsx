@@ -19,7 +19,7 @@ const fraunces = Fraunces({
 
 export const metadata: Metadata = {
   title: "Talk2Build",
-  description: "Alexa+ listens to the meeting. The doc, the diff, and the pull request are ready when the room is.",
+  description: "Describe the result. Talk2Build plans the steps, runs the tools, and leaves the files in the workspace.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

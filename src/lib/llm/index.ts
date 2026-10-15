@@ -12,8 +12,15 @@ export function resolveProviderId(): ProviderId {
   return "mock";
 }
 
-export function createProvider(): LlmProvider {
-  const id = resolveProviderId();
+export function normalizeProvider(raw: string | undefined): ProviderId {
+  const value = (raw || "mock").toLowerCase();
+  if (value === "bedrock") return "bedrock";
+  if (value === "openai" || value === "nebius") return "openai";
+  return "mock";
+}
+
+export function createProvider(override?: string): LlmProvider {
+  const id = override ? normalizeProvider(override) : resolveProviderId();
   if (id === "bedrock") {
     return {
       id: "bedrock",
