@@ -1,0 +1,317 @@
+import type {
+  ChatterItem,
+  Decision,
+  DeployRecord,
+  DiffFile,
+  DocRecord,
+  MeetingState,
+  PendingConfirm,
+  ProgressReport,
+  PullRequestDraft,
+  Requirement,
+  ScaffoldFile,
+  SpeakerId,
+  TimelineEvent,
+  TodoItem,
+  ToolTraceEntry,
+  TranscriptEntry,
+} from "@/lib/types";
+
+function now() {
+  return new Date().toISOString();
+}
+
+export function emptyMeeting(id = "demo"): MeetingState {
+  return {
+    id,
+    title: "Orders service postmortem",
+    incidentDate: "2026-10-15",
+    seq: 0,
+    transcript: [],
+    timeline: [],
+    decisions: [],
+    requirements: [],
+    todos: [],
+    chatter: [],
+    deploy: null,
+    incidentDiff: null,
+    scaffold: null,
+    pullRequest: null,
+    docs: [],
+    pending: null,
+    progress: [],
+    toolTrace: [],
+    substantiveTurns: 0,
+    updatedAt: now(),
+  };
+}
+
+interface StoreGlobal {
+  __talk2buildStore?: MeetingStore;
+}
+
+export class MeetingStore {
+  private meetings = new Map<string, MeetingState>();
+  private checkpoints = new Map<string, MeetingState[]>();
+
+  ensure(id = "demo"): MeetingState {
+    const existing = this.meetings.get(id);
+    if (existing) return existing;
+    const created = emptyMeeting(id);
+    this.meetings.set(id, created);
+    this.checkpoints.set(id, []);
+    return created;
+  }
+
+  get(id = "demo"): MeetingState {
+    return this.ensure(id);
+  }
+
+  reset(id = "demo"): MeetingState {
+    const created = emptyMeeting(id);
+    this.meetings.set(id, created);
+    this.checkpoints.set(id, []);
+    return created;
+  }
+
+  checkpoint(id = "demo") {
+    const snap = structuredClone(this.ensure(id));
+    const stack = this.checkpoints.get(id) ?? [];
+    stack.push(snap);
+    this.checkpoints.set(id, stack);
+  }
+
+  rollback(id = "demo"): { restored: boolean } {
+    const stack = this.checkpoints.get(id) ?? [];
+    const snap = stack.pop();
+    this.checkpoints.set(id, stack);
+    if (!snap) return { restored: false };
+    this.meetings.set(id, snap);
+    return { restored: true };
+  }
+
+  private touch(state: MeetingState) {
+    state.updatedAt = now();
+  }
+
+  private nextId(state: MeetingState, prefix: string) {
+    state.seq += 1;
+    return `${prefix}_${state.seq}`;
+  }
+
+  ingest(
+    id: string,
+    input: { speaker: SpeakerId | "Alexa"; text: string; kind?: string },
+  ): TranscriptEntry {
+    const state = this.ensure(id);
+    const entry: TranscriptEntry = {
+      id: this.nextId(state, "tr"),
+      speaker: input.speaker,
+      text: input.text,
+      at: now(),
+      kind: input.kind,
+    };
+    state.transcript.push(entry);
+    this.touch(state);
+    return entry;
+  }
+
+  stampKind(id: string, text: string, kind: string) {
+    const state = this.ensure(id);
+    for (let index = state.transcript.length - 1; index >= 0; index -= 1) {
+      const line = state.transcript[index];
+      if (line && line.speaker !== "Alexa" && line.text === text) {
+        line.kind = kind;
+        this.touch(state);
+        return line;
+      }
+    }
+    return null;
+  }
+
+  addTimeline(
+    id: string,
+    input: Omit<TimelineEvent, "id" | "linkedIds"> & { linkedIds?: string[] },
+  ): TimelineEvent {
+    const state = this.ensure(id);
+    const event: TimelineEvent = {
+      id: this.nextId(state, "tl"),
+      linkedIds: input.linkedIds ?? [],
+      timeLabel: input.timeLabel,
+      title: input.title,
+      detail: input.detail,
+      speaker: input.speaker,
+      correlationNote: input.correlationNote,
+      metrics: input.metrics,
+    };
+    state.timeline.push(event);
+    state.timeline.sort((a, b) => a.timeLabel.localeCompare(b.timeLabel));
+    this.touch(state);
+    return event;
+  }
+
+  correlate(id: string, fromTime: string, toTime: string, note: string) {
+    const state = this.ensure(id);
+    const from = [...state.timeline].reverse().find((event) => event.timeLabel === fromTime);
+    const to = state.timeline.find((event) => event.timeLabel === toTime);
+    if (!from || !to) {
+      return { ok: false as const, from: from ?? null, to: to ?? null };
+    }
+    if (!from.linkedIds.includes(to.id)) from.linkedIds.push(to.id);
+    if (!to.linkedIds.includes(from.id)) to.linkedIds.push(from.id);
+    from.correlationNote = note;
+    this.touch(state);
+    return { ok: true as const, from, to };
+  }
+
+  parkChatter(id: string, speaker: SpeakerId, text: string): ChatterItem {
+    const state = this.ensure(id);
+    const item: ChatterItem = {
+      id: this.nextId(state, "ch"),
+      speaker,
+      text,
+      at: now(),
+    };
+    state.chatter.push(item);
+    this.touch(state);
+    return item;
+  }
+
+  recordDecision(id: string, speaker: SpeakerId, text: string, requirements: string[] = []) {
+    const state = this.ensure(id);
+    const decision: Decision = {
+      id: this.nextId(state, "dec"),
+      speaker,
+      text,
+      at: now(),
+    };
+    state.decisions.push(decision);
+    const filed: Requirement[] = requirements.filter(Boolean).map((requirement) => ({
+      id: this.nextId(state, "req"),
+      text: requirement,
+      speaker,
+      at: now(),
+    }));
+    state.requirements.push(...filed);
+    this.touch(state);
+    return { decision, requirements: filed };
+  }
+
+  addRequirement(id: string, speaker: SpeakerId, text: string): Requirement {
+    const state = this.ensure(id);
+    const item: Requirement = {
+      id: this.nextId(state, "req"),
+      speaker,
+      text,
+      at: now(),
+    };
+    state.requirements.push(item);
+    this.touch(state);
+    return item;
+  }
+
+  addTodo(id: string, speaker: SpeakerId, text: string): TodoItem {
+    const state = this.ensure(id);
+    const item: TodoItem = {
+      id: this.nextId(state, "todo"),
+      speaker,
+      text,
+      done: false,
+      at: now(),
+    };
+    state.todos.push(item);
+    this.touch(state);
+    return item;
+  }
+
+  askConfirm(id: string, pending: Omit<PendingConfirm, "id">): PendingConfirm {
+    const state = this.ensure(id);
+    const stored: PendingConfirm = { ...pending, id: this.nextId(state, "ask") };
+    state.pending = stored;
+    this.touch(state);
+    return stored;
+  }
+
+  clearPending(id: string) {
+    const state = this.ensure(id);
+    state.pending = null;
+    this.touch(state);
+  }
+
+  setDeploy(id: string, deploy: DeployRecord) {
+    const state = this.ensure(id);
+    state.deploy = deploy;
+    this.touch(state);
+  }
+
+  setIncidentDiff(id: string, files: DiffFile[]) {
+    const state = this.ensure(id);
+    state.incidentDiff = files;
+    this.touch(state);
+  }
+
+  setScaffold(id: string, files: ScaffoldFile[]) {
+    const state = this.ensure(id);
+    state.scaffold = files;
+    this.touch(state);
+  }
+
+  setPullRequest(id: string, pullRequest: PullRequestDraft) {
+    const state = this.ensure(id);
+    state.pullRequest = pullRequest;
+    this.touch(state);
+  }
+
+  writeDoc(id: string, title: string, body: string): DocRecord {
+    const state = this.ensure(id);
+    const doc: DocRecord = {
+      id: this.nextId(state, "doc"),
+      title,
+      body,
+      at: now(),
+    };
+    state.docs.push(doc);
+    this.touch(state);
+    return doc;
+  }
+
+  addProgress(id: string, text: string): ProgressReport {
+    const state = this.ensure(id);
+    const report: ProgressReport = {
+      id: this.nextId(state, "prog"),
+      text,
+      at: now(),
+    };
+    state.progress.push(report);
+    this.touch(state);
+    return report;
+  }
+
+  addTrace(id: string, entry: Omit<ToolTraceEntry, "at">) {
+    const state = this.ensure(id);
+    state.toolTrace.push({ ...entry, at: now() });
+    if (state.toolTrace.length > 80) {
+      state.toolTrace.splice(0, state.toolTrace.length - 80);
+    }
+    this.touch(state);
+  }
+
+  bumpSubstantive(id: string) {
+    const state = this.ensure(id);
+    state.substantiveTurns += 1;
+    this.touch(state);
+    return state.substantiveTurns;
+  }
+}
+
+export function getStore(): MeetingStore {
+  const g = globalThis as typeof globalThis & StoreGlobal;
+  if (!g.__talk2buildStore) g.__talk2buildStore = new MeetingStore();
+  return g.__talk2buildStore;
+}
+
+export function resetStore() {
+  const g = globalThis as typeof globalThis & StoreGlobal;
+  g.__talk2buildStore = new MeetingStore();
+  return g.__talk2buildStore;
+}

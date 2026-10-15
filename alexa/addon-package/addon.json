@@ -1,0 +1,60 @@
+{
+  "manifestVersion": "1.0",
+  "storeListing": {
+    "distributionCountries": ["US"],
+    "locales": {
+      "en-US": {
+        "default": "DEFAULT",
+        "name": {
+          "value": "Talk2Build"
+        },
+        "shortDescription": "Listens to a working session and turns decisions into a doc, a diff, and a pull request.",
+        "fullDescription": "Talk2Build is the meeting where the work gets done. Alexa+ listens to a postmortem or a planning session, classifies each utterance as an event, decision, requirement, action item, or chatter, and calls a self-hosted MCP server. Chatter stays out of the requirement pool. Docs are written immediately. A pull request waits until someone says yes. Say stop or 不对 to roll back to the last checkpoint.",
+        "examplePhrases": [
+          "Talk2Build, we're in the postmortem",
+          "Log that as the root cause",
+          "Open the fix pull request",
+          "What did we decide?"
+        ],
+        "privacyAndCompliance": {
+          "privacyPolicyUrl": "https://example.com/talk2build/privacy",
+          "termsOfUseUrl": "https://example.com/talk2build/terms"
+        },
+        "mediaAssets": {
+          "icons": {
+            "light": [
+              { "size": "72x72", "uri": "https://example.com/talk2build/icon-72.png" },
+              { "size": "64x64", "uri": "https://example.com/talk2build/icon-64.png" },
+              { "size": "88x88", "uri": "https://example.com/talk2build/icon-88.png" },
+              { "size": "126x126", "uri": "https://example.com/talk2build/icon-126.png" },
+              { "size": "180x180", "uri": "https://example.com/talk2build/icon-180.png" },
+              { "size": "241x241", "uri": "https://example.com/talk2build/icon-241.png" }
+            ],
+            "dark": []
+          },
+          "carouselImages": [
+            {
+              "uri": "https://example.com/talk2build/carousel.png",
+              "altText": "Talk2Build meeting room with transcript, timeline, and the fix diff",
+              "size": "600x900"
+            }
+          ],
+          "bannerImages": []
+        }
+      }
+    }
+  },
+  "integrations": [
+    {
+      "type": "MCP",
+      "config": {
+        "endpoints": {
+          "default": {
+            "type": "HTTPS",
+            "uri": "https://example.com/mcp"
+          }
+        }
+      }
+    }
+  ]
+}

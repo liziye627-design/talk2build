@@ -1,0 +1,6 @@
+import { handleMeetingReset } from "@/server/routes";
+
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
+export const POST = handleMeetingReset;
