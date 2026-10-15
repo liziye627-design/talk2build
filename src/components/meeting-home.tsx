@@ -24,7 +24,7 @@ export function MeetingHome() {
   const [error, setError] = useState("");
   const [joinOpen, setJoinOpen] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
-  const [code, setCode] = useState("");
+  const [code, setCode] = useState("TB-ROOM");
   const [title, setTitle] = useState("Billing export working session");
   const [when, setWhen] = useState("");
   const [busy, setBusy] = useState(false);
@@ -113,7 +113,7 @@ export function MeetingHome() {
             <Video className="h-4 w-4" />
             Start meeting
           </Button>
-          <Button variant="secondary" className="h-11 w-full" onClick={() => setJoinOpen(true)} data-testid="join-meeting">
+          <Button variant="secondary" className="h-11 w-full" onClick={() => { setError(""); setJoinOpen(true); }} data-testid="join-meeting">
             <LogIn className="h-4 w-4" />
             Join
           </Button>
@@ -184,6 +184,7 @@ export function MeetingHome() {
               Join
             </Button>
           </form>
+          {error ? <p className="mt-3 text-sm text-danger">{error}</p> : null}
         </DialogContent>
       </Dialog>
 
