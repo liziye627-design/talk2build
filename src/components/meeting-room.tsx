@@ -308,11 +308,11 @@ export function MeetingRoom() {
 
   return (
     <div className="flex h-dvh flex-col">
-      <div className="h-1 bg-gradient-to-r from-[#e7b15a] via-[#ff6d6d] to-[#9eb6ff]" />
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-white/8 px-4 py-3 md:px-6">
+      <div className="h-1 bg-line" />
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3 md:px-6">
         <div>
-          <p className="font-[family-name:var(--font-display)] text-2xl italic tracking-tight text-[#f6f1e7]">Talk2Build</p>
-          <p className="text-xs text-[#9aa3b2]">Orders postmortem · 15 Oct 2026 · the meeting where the work gets done</p>
+          <p className="font-[family-name:var(--font-display)] text-2xl italic tracking-tight text-ink">Talk2Build</p>
+          <p className="text-xs text-muted">Orders postmortem · 15 Oct 2026 · the meeting where the work gets done</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="alexa">Alexa+</Badge>
@@ -349,26 +349,26 @@ export function MeetingRoom() {
         </div>
       </main>
 
-      <footer className="border-t border-white/8 bg-[#0e131b]/95 px-3 py-3 md:px-4">
+      <footer className="border-t border-line bg-surface px-3 py-3 md:px-4">
         {error ? (
-          <p role="alert" className="mb-2 rounded-xl border border-[#ff6d6d]/40 bg-[#ff6d6d]/10 px-3 py-2 text-sm text-[#ffb4b4]">
+          <p role="alert" className="mb-2 rounded-xl border border-danger/20 bg-danger-soft px-3 py-2 text-sm text-danger">
             {error}
           </p>
         ) : null}
-        {micError ? <p className="mb-2 text-xs text-[#e7b15a]">{micError}</p> : null}
+        {micError ? <p className="mb-2 text-xs text-brand">{micError}</p> : null}
         {progress ? (
-          <p className="mb-2 font-mono text-[11px] text-[#9eb6ff]" data-testid="progress">
+          <p className="mb-2 font-mono text-[11px] text-brand" data-testid="progress">
             {progress}
           </p>
         ) : null}
         <div className="flex flex-wrap items-end gap-2">
-          <div className="flex rounded-full bg-white/5 p-1">
+          <div className="flex rounded-full bg-sunken p-1">
             {(["A", "B"] as const).map((id) => (
               <button
                 key={id}
                 type="button"
                 onClick={() => setSpeaker(id)}
-                className={`rounded-full px-3 py-1 text-xs ${speaker === id ? (id === "A" ? "bg-[#7ddec8] text-[#06221c]" : "bg-[#e7b15a] text-[#1a1206]") : "text-[#9aa3b2]"}`}
+                className={`rounded-lg px-3 py-1 text-xs ${speaker === id ? "bg-brand text-white" : "text-muted"}`}
               >
                 Speaker {id}
               </button>
@@ -389,7 +389,7 @@ export function MeetingRoom() {
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
               placeholder={listening ? "Listening…" : "Say it, or type it. Try “stop” or “不对”."}
-              className="h-10 flex-1 rounded-full border border-white/10 bg-black/30 px-4 text-sm text-[#f3efe6] outline-none placeholder:text-[#667085]"
+              className="h-10 flex-1 rounded-full border border-line bg-sunken px-4 text-sm text-ink outline-none placeholder:text-faint"
             />
             <Button type="submit" variant="secondary" disabled={busy || !draft.trim()}>
               Send
@@ -409,7 +409,7 @@ export function MeetingRoom() {
           </Button>
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          <p className="min-w-0 flex-1 text-sm text-[#d5defc]" data-testid="alexa-reply" aria-live="polite">
+          <p className="min-w-0 flex-1 text-sm text-brand" data-testid="alexa-reply" aria-live="polite">
             {busy ? "Alexa+ is working the room…" : caption || "Alexa+ is on the line."}
           </p>
           {state.pending ? (
@@ -423,22 +423,22 @@ export function MeetingRoom() {
           ) : null}
         </div>
         {lastTrace.length > 0 ? (
-          <p className="mt-2 truncate font-mono text-[10px] text-[#667085]" data-testid="tool-trace">
+          <p className="mt-2 truncate font-mono text-[10px] text-faint" data-testid="tool-trace">
             {lastTrace.map((entry) => entry.tool).join("  ·  ")}
           </p>
         ) : null}
       </footer>
 
       {phase === "title" || phase === "end" ? (
-        <div className="fixed inset-0 z-30 flex items-center justify-center bg-[#07090d]/88 px-6 text-center">
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-canvas/88 px-6 text-center">
           <div className="max-w-xl">
-            <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-[#e7b15a]">
+            <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-brand">
               {phase === "title" ? "2:17 AM" : "After"}
             </p>
-            <p className="mt-4 font-[family-name:var(--font-display)] text-3xl leading-tight text-[#f6f1e7] md:text-4xl">
+            <p className="mt-4 font-[family-name:var(--font-display)] text-3xl leading-tight text-ink md:text-4xl">
               {phase === "title" ? DEMO_SCRIPT.title : DEMO_SCRIPT.closing}
             </p>
-            {phase === "end" ? <p className="mt-4 text-[#9eb6ff]">{DEMO_SCRIPT.tagline}</p> : null}
+            {phase === "end" ? <p className="mt-4 text-brand">{DEMO_SCRIPT.tagline}</p> : null}
             {phase === "end" ? (
               <Button className="mt-6" onClick={() => setPhase("live")}>
                 Back to the room
@@ -466,7 +466,7 @@ export function MeetingRoom() {
               value={instead}
               onChange={(event) => setInstead(event.target.value)}
               placeholder="Say the correction"
-              className="h-10 flex-1 rounded-full border border-white/10 bg-black/30 px-4 text-sm outline-none"
+              className="h-10 flex-1 rounded-full border border-line bg-sunken px-4 text-sm outline-none"
             />
             <Button type="submit">Tell Alexa+</Button>
           </form>

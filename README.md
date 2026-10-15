@@ -1,8 +1,6 @@
 # Talk2Build
 
-Describe the result. Talk2Build plans the steps, runs the tools, and leaves the files in the workspace. A meeting is one of those tasks: Alexa+ listens, chatter stays out of the requirement pool, and the minutes land back on the task when the room ends.
-
-The 2:17 AM orders postmortem is one mode, opened from **Incident demo**. It is not the home page.
+Talk2Build is a meeting app. The interface follows WorkBuddy’s light tokens: white surfaces, gray type, and one blue accent (`#155eef`). Home is start, join, and schedule, plus the meetings you have already held. Inside a room the agent sits on the right and works while people talk: a plan, a design, a check, or a reference, each as a live card. Big steps still wait for a yes. Chatter stays parked. The task desk is at `/tasks`. The 2:17 AM orders postmortem is **Incident demo**.
 
 This is an Alexa+ track project for the Amazon Developer Hackathon (`amazonappdev2026`), with the AWS Builder and Open Source mini challenges in mind.
 
@@ -16,12 +14,12 @@ npm run dev
 
 Open [http://127.0.0.1:43123](http://127.0.0.1:43123). No API keys. The dev server needs Node's SQLite flag; `npm run dev` sets `NODE_OPTIONS=--experimental-sqlite`.
 
-On the desk:
+On the meeting home:
 
-- **New task** starts a thread. The empty state asks for an outcome, not a meeting console.
-- Try “What did we decide yesterday?”, then “Turn yesterday's action items into issues” and confirm with yes. The first launch seeds yesterday's API review so that question has an answer.
-- **Start a planning meeting** opens a room: participant tiles, mic, live captions, and the requirement pool. **End meeting** writes minutes and posts them on the linked task.
+- **Start meeting** opens a room with you, Maya, Chris, and Priya. **Play a working session** runs a billing-export conversation. The right panel fills in a plan, an architecture sketch, a settings wireframe, an API spec, a feasibility check, and a research card that cites yesterday's decision. Lunch is parked. Tests wait until someone says yes.
+- **Join** takes a code. Your room is `TB-ROOM`. **Schedule** leaves a meeting on the list.
 - **Incident demo** resets the 2:17 AM room. **Play the 2:17 script** runs the eight beats. `stop` and `不对` roll back one checkpoint.
+- **Task desk** (`/tasks`) is the secondary thread view.
 
 Meetings, tasks, messages, and artifacts are stored in `data/talk2build.sqlite`. Workspace files live under `data/workspaces/`. Both are gitignored.
 
@@ -29,12 +27,14 @@ Meetings, tasks, messages, and artifacts are stored in `data/talk2build.sqlite`.
 
 ```mermaid
 flowchart LR
-  desk["Task desk"] --> chat["POST /api/threads/:id/messages"]
-  room["Meeting room"] --> turn["POST /api/alexa/turn"]
-  chat --> tools["MCP tools"]
+  home["Meeting home"] --> room["Live room"]
+  room --> turn["POST /api/alexa/turn"]
   turn --> alexa["AlexaPlusClient"]
   alexa --> mcp["POST /mcp"]
-  mcp --> tools
+  mcp --> tools["MCP tools"]
+  tools --> panel["Plan, design, verify, research"]
+  desk["Task desk"] --> chat["POST /api/threads/:id/messages"]
+  chat --> tools
   tools --> db["SQLite meetings and tasks"]
   tools --> files["Workspace files"]
   planner["Mock, Bedrock, or Nebius"] --> turn
@@ -52,6 +52,11 @@ The task desk streams a plan, each tool call, and the reply as server-sent event
 | `decision_record` / `requirement_add` / `todo_add` | Decisions, the pool, action items |
 | `confirm_ask` | Asks before a diff, a PR, a scaffold, a test run, or issues |
 | `write_doc` | Markdown in the workspace. Docs do not wait |
+| `plan_update` | Live plan card: goal and milestones |
+| `design_draft` | Architecture diagram, UI wireframe, or API spec while design is discussed |
+| `verify_check` | Feasibility against earlier decisions. The test suite still waits for a yes |
+| `research_collect` | References from past meetings and saved preferences. Mock mode does not invent web citations |
+| `suggest_surface` / `preference_note` | A timely reminder, and a preference the next meeting can use |
 | `search_memory` | Decisions and action items across meetings, including yesterday |
 | `create_issues` | One markdown issue per open action item |
 | `meeting_summary` | Minutes back onto the task |

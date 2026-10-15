@@ -8,9 +8,7 @@
 
 ## What it does
 
-Talk2Build is the desk where the work gets done. You describe an outcome. The agent shows the plan, runs MCP tools, and leaves real files in a workspace. A meeting is one of those tasks: Alexa+ listens, and when the room ends the minutes show up on the same thread.
-
-The 2:17 AM orders postmortem is one scripted mode, not the whole product. Open it from Incident demo. The home page is a task: yesterday's decision, issues from the action items, a spec, a scaffold with tests, or a live room.
+Talk2Build is a meeting product. The home screen is start, join, and schedule. In the room, several people talk on an avatar grid with live captions. A right-hand agent works without being prompted: it updates the plan, drafts architecture, wireframes, and API specs when design comes up, checks feasibility against earlier decisions, and collects references from past meetings. Each workstream is a live card. Scaffolding and tests wait for a spoken yes. Chatter stays parked. The task desk is secondary. The 2:17 AM orders postmortem is one scripted mode.
 
 - Real work and chatter are not the same thing. “记一下” and “就这么定了” act immediately. Lunch talk is parked in a chatter column and never enters the requirement pool. Alexa+ stays quiet.
 - Every requirement remembers who said it. The demo labels speakers A and B. Voiceprints can come later.
@@ -30,7 +28,7 @@ Each utterance is planned by a pluggable model layer:
 
 The plan is a list of MCP tool calls. Meetings, tasks, and artifacts persist in SQLite. Incident meetings still use the 2:17 AM fixtures: batch-reconcile v2.3 at 11:40 PM, Redis climbing at 2:15, and a diff that shrinks `max_connections` from 50 to 20 and drops the command timeout. Any other meeting writes real markdown, scaffolds files into a workspace, and runs `node --test`. Large actions wait for a yes.
 
-The desk is a task thread with a plan, tool cards, and an artifact monitor. The meeting room is a separate screen: participant tiles, mic, captions, and the live pool. Ending the meeting writes minutes back to the task.
+Home is the meeting list: start, join, schedule, and recent rooms. Inside a room, an avatar grid and captions sit beside an agent panel. While people talk, MCP tools update that panel: `plan_update`, `design_draft`, `verify_check`, and `research_collect`. Suggestions come from earlier decisions and saved preferences. The task desk at `/tasks` is the secondary thread view. Ending the meeting writes minutes, including the agent cards, back to the task.
 
 ## What to submit alongside this text
 

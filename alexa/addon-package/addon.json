@@ -9,7 +9,7 @@
           "value": "Talk2Build"
         },
         "shortDescription": "Listens to a working session and turns it into notes, issues, code, and a pull request.",
-        "fullDescription": "Talk2Build is a task desk with a meeting room. Alexa+ listens, classifies each utterance, and calls a self-hosted MCP server. Chatter stays out of the requirement pool. Docs are written immediately. Scaffolding, issues, and pull requests wait for a yes. Say stop or 不对 to roll back to the last checkpoint. When the meeting ends, the minutes land on the task.",
+        "fullDescription": "Talk2Build is a meeting app. Alexa+ listens while the room talks and calls a self-hosted MCP server. The agent updates the plan, drafts designs, checks feasibility, and pulls earlier decisions. Chatter stays parked. Scaffolding, tests, issues, and pull requests wait for a yes. Say stop or 不对 to roll back to the last checkpoint. When the meeting ends, the minutes land on the task.",
         "examplePhrases": [
           "Talk2Build, we're in the postmortem",
           "Log that as the root cause",
@@ -35,7 +35,7 @@
           "carouselImages": [
             {
               "uri": "https://example.com/talk2build/carousel.png",
-              "altText": "Talk2Build meeting room with transcript, timeline, and the fix diff",
+              "altText": "Talk2Build meeting with an avatar grid and a live agent panel",
               "size": "600x900"
             }
           ],

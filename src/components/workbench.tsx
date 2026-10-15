@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowUp,
@@ -87,7 +88,7 @@ function linkify(text: string) {
   const parts = text.split(/(\/meetings\/[A-Za-z0-9_-]+)/g);
   return parts.map((part, index) =>
     part.startsWith("/meetings/") ? (
-      <a key={`${part}-${index}`} href={part} className="text-[#9eb6ff] underline-offset-2 hover:underline">
+      <a key={`${part}-${index}`} href={part} className="text-brand underline-offset-2 hover:underline">
         {part}
       </a>
     ) : (
@@ -294,14 +295,17 @@ export function Workbench() {
   ];
 
   return (
-    <div className="flex h-dvh overflow-hidden bg-[#0b0e13] text-[#f3efe6]">
+    <div className="flex h-dvh overflow-hidden bg-canvas text-ink">
       <aside
-        className={`${navOpen ? "flex" : "hidden"} absolute z-20 h-full w-72 flex-col border-r border-white/10 bg-[#0e1218] lg:static lg:flex`}
+        className={`${navOpen ? "flex" : "hidden"} absolute z-20 h-full w-72 flex-col border-r border-line bg-surface lg:static lg:flex`}
       >
         <div className="flex items-center justify-between px-4 py-4">
           <div>
-            <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[#9aa3b2]">Talk2Build</p>
-            <p className="text-sm text-[#f3efe6]">Tasks</p>
+            <p className="text-xs text-muted">Talk2Build</p>
+            <p className="text-sm font-medium text-ink">Tasks</p>
+            <Link href="/" className="text-xs text-brand">
+              Meetings
+            </Link>
           </div>
           <Button size="sm" onClick={() => void createTask()} data-testid="new-task">
             <Plus className="h-3.5 w-3.5" />
@@ -310,7 +314,7 @@ export function Workbench() {
         </div>
         <div className="px-3">
           <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-[#8b93a1]" />
+            <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted" />
             <Input
               id="task-search"
               name="task-search"
@@ -324,14 +328,14 @@ export function Workbench() {
         </div>
         <div className="mt-3 min-h-0 flex-1 space-y-1 overflow-y-auto px-2">
           {threads.length === 0 ? (
-            <p className="px-2 py-3 text-sm text-[#8b93a1]">No tasks yet. Describe an outcome to start one.</p>
+            <p className="px-2 py-3 text-sm text-muted">No tasks yet. Describe an outcome to start one.</p>
           ) : (
             threads.map((thread) => (
               <button
                 key={thread.id}
                 type="button"
                 onClick={() => void openThread(thread.id)}
-                className={`flex w-full items-start justify-between gap-2 rounded-xl px-3 py-2 text-left text-sm hover:bg-white/6 ${activeId === thread.id ? "bg-white/8" : ""}`}
+                className={`flex w-full items-start justify-between gap-2 rounded-xl px-3 py-2 text-left text-sm hover:bg-sunken ${activeId === thread.id ? "bg-sunken" : ""}`}
               >
                 <span className="line-clamp-2">{thread.title}</span>
                 <Badge variant={thread.status === "running" ? "ok" : "muted"}>{thread.status}</Badge>
@@ -339,13 +343,13 @@ export function Workbench() {
             ))
           )}
         </div>
-        <div className="border-t border-white/10 p-3">
-          <p className="px-2 pb-2 font-mono text-[10px] uppercase tracking-[0.18em] text-[#9aa3b2]">Meetings</p>
+        <div className="border-t border-line p-3">
+          <p className="px-2 pb-2 text-xs text-muted">Meetings</p>
           <div className="max-h-36 space-y-1 overflow-y-auto">
             {(boot?.meetings ?? []).map((meeting) => (
-              <a key={meeting.id} href={`/meetings/${meeting.id}`} className="block rounded-lg px-2 py-1.5 text-sm hover:bg-white/6">
+              <a key={meeting.id} href={`/meetings/${meeting.id}`} className="block rounded-lg px-2 py-1.5 text-sm hover:bg-sunken">
                 <span className="block truncate">{meeting.title}</span>
-                <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#8b93a1]">
+                <span className="text-xs text-muted">
                   {meeting.status} · {meeting.joinCode}
                 </span>
               </a>
@@ -354,28 +358,28 @@ export function Workbench() {
           <button
             type="button"
             onClick={() => void openIncident()}
-            className="mt-3 w-full rounded-xl border border-white/10 px-3 py-2 text-left text-sm text-[#c9d0da] hover:bg-white/6"
+            className="mt-3 w-full rounded-xl border border-line px-3 py-2 text-left text-sm text-body hover:bg-sunken"
             data-testid="incident-demo"
           >
             Incident demo
-            <span className="mt-0.5 block text-xs text-[#8b93a1]">2:17 AM orders postmortem</span>
+            <span className="mt-0.5 block text-xs text-muted">2:17 AM orders postmortem</span>
           </button>
         </div>
       </aside>
 
       <section className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3 lg:px-6">
+        <header className="flex items-center justify-between gap-3 border-b border-line px-4 py-3 lg:px-6">
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" className="lg:hidden" onClick={() => setNavOpen((open) => !open)}>
               Tasks
             </Button>
             <div>
-              <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#9aa3b2]">Task</p>
-              <h1 className="text-sm">{active?.title ?? "New task"}</h1>
+              <p className="text-xs text-muted">Task</p>
+              <h1 className="text-sm font-medium">{active?.title ?? "New task"}</h1>
             </div>
           </div>
           {active?.meetingId ? (
-            <a href={`/meetings/${active.meetingId}`} className="text-xs text-[#9eb6ff]">
+            <a href={`/meetings/${active.meetingId}`} className="text-xs text-brand">
               Open meeting
             </a>
           ) : null}
@@ -384,21 +388,21 @@ export function Workbench() {
         <div ref={scroller} className="min-h-0 flex-1 overflow-y-auto px-4 py-6 lg:px-10">
           {messages.length === 0 && !streaming ? (
             <div className="mx-auto flex max-w-2xl flex-col items-start pt-10 lg:pt-20">
-              <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[#e7b15a]">Talk2Build</p>
-              <h2 className="mt-3 font-[family-name:var(--font-fraunces)] text-4xl leading-tight text-[#f6f1e7] sm:text-5xl">
+              <p className="text-sm text-muted">Talk2Build</p>
+              <h2 className="mt-3 max-w-lg text-3xl font-semibold tracking-tight text-ink">
                 More than chat. Get the work done.
               </h2>
-              <p className="mt-4 max-w-xl text-base leading-7 text-[#b7c0cc]">
+              <p className="mt-4 max-w-xl text-base leading-7 text-body">
                 Describe the result you want. Talk2Build lays out the steps, runs the tools, and leaves the files in the workspace.
               </p>
-              <div className="mt-6 flex flex-wrap gap-2">
+              <div className="mt-8 flex flex-wrap gap-2">
                 {SUGGESTIONS.map((item) => (
                   <button
                     key={item.id}
                     type="button"
                     data-testid={`suggestion-${item.id}`}
                     onClick={() => void send(item.label)}
-                    className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-left text-sm text-[#e7e1d6] hover:border-[#e7b15a]/40"
+                    className="rounded-lg border border-line bg-surface px-3 py-2 text-left text-sm text-ink shadow-card hover:border-brand/30"
                   >
                     {item.label}
                   </button>
@@ -409,14 +413,14 @@ export function Workbench() {
             <div className="mx-auto flex max-w-2xl flex-col gap-4">
               {messages.map((message) => (
                 <article key={message.id} className={message.role === "user" ? "ml-8" : ""}>
-                  <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#8b93a1]">
+                  <p className="text-xs text-muted">
                     {message.role === "user" ? "You" : "Talk2Build"}
                   </p>
                   <div
                     className={
                       message.role === "user"
-                        ? "mt-1 rounded-2xl bg-white/8 px-4 py-3 text-sm leading-6"
-                        : "mt-1 text-sm leading-7 text-[#f3efe6]"
+                        ? "mt-1 rounded-2xl bg-sunken px-4 py-3 text-sm leading-6"
+                        : "mt-1 text-sm leading-7 text-ink"
                     }
                   >
                     {linkify(message.content)}
@@ -436,14 +440,14 @@ export function Workbench() {
               {streaming ? (
                 <p className="text-sm leading-7">
                   {streaming}
-                  <span className="ml-0.5 inline-block h-4 w-1.5 translate-y-0.5 animate-pulse bg-[#e7b15a]" />
+                  <span className="ml-0.5 inline-block h-4 w-1.5 translate-y-0.5 animate-pulse bg-brand" />
                 </p>
               ) : null}
             </div>
           )}
         </div>
 
-        {error ? <p className="px-6 pb-2 text-sm text-[#ff8d8d]">{error}</p> : null}
+        {error ? <p className="px-6 pb-2 text-sm text-danger">{error}</p> : null}
 
         <form
           className="px-4 pb-4 lg:px-10"
@@ -452,7 +456,7 @@ export function Workbench() {
             void send(draft);
           }}
         >
-          <div className="mx-auto max-w-2xl rounded-3xl border border-white/10 bg-[#121821] p-3 shadow-[0_20px_80px_rgba(0,0,0,0.25)]">
+          <div className="mx-auto max-w-2xl rounded-xl border border-line bg-surface p-3 shadow-card">
             <textarea
               id="task-composer"
               name="task"
@@ -467,10 +471,10 @@ export function Workbench() {
               }}
               rows={2}
               placeholder="Describe the result. A decision, a spec, a fix, a meeting."
-              className="w-full resize-none bg-transparent px-2 py-1 text-sm leading-6 outline-none placeholder:text-[#8b93a1]"
+              className="w-full resize-none bg-transparent px-2 py-1 text-sm leading-6 outline-none placeholder:text-muted"
             />
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <label className="flex items-center gap-1 rounded-full border border-white/10 px-2 py-1 text-xs text-[#c9d0da]">
+              <label className="flex items-center gap-1 rounded-lg border border-line bg-canvas px-2 py-1 text-xs text-body">
                 <FolderOpen className="h-3.5 w-3.5" />
                 <select
                   id="workspace-picker"
@@ -481,13 +485,13 @@ export function Workbench() {
                   className="bg-transparent outline-none"
                 >
                   {(boot?.workspaces ?? [{ id: "desk", name: "Desk" }]).map((workspace) => (
-                    <option key={workspace.id} value={workspace.id} className="bg-[#121821]">
+                    <option key={workspace.id} value={workspace.id} className="bg-surface">
                       {workspace.name}
                     </option>
                   ))}
                 </select>
               </label>
-              <label className="flex items-center gap-1 rounded-full border border-white/10 px-2 py-1 text-xs text-[#c9d0da]">
+              <label className="flex items-center gap-1 rounded-lg border border-line bg-canvas px-2 py-1 text-xs text-body">
                 <select
                   id="model-picker"
                   name="model"
@@ -498,13 +502,13 @@ export function Workbench() {
                   data-testid="model-picker"
                 >
                   {(boot?.providers ?? []).map((item) => (
-                    <option key={item.id} value={item.id} className="bg-[#121821]">
+                    <option key={item.id} value={item.id} className="bg-surface">
                       {item.label} · {item.model}
                     </option>
                   ))}
                 </select>
               </label>
-              <span className="hidden text-xs text-[#8b93a1] sm:inline">{workspaceId}</span>
+              <span className="hidden text-xs text-muted sm:inline">{workspaceId}</span>
               <div className="ml-auto flex items-center gap-2">
                 <Button type="button" variant="ghost" size="icon" onClick={toggleMic} aria-label={listening ? "Stop microphone" : "Microphone"}>
                   {listening ? <Square className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
@@ -518,7 +522,7 @@ export function Workbench() {
         </form>
       </section>
 
-      <aside className="hidden w-80 shrink-0 flex-col border-l border-white/10 bg-[#10151c] lg:flex" data-testid="task-monitor">
+      <aside className="hidden w-80 shrink-0 flex-col border-l border-line bg-surface lg:flex" data-testid="task-monitor">
         <Monitor plan={plan} artifacts={artifacts} tools={toolNames} preview={preview} busy={busy} onOpen={(artifact) => void showArtifact(artifact)} />
       </aside>
     </div>
@@ -527,12 +531,12 @@ export function Workbench() {
 
 function ToolCard({ call }: { call: ToolCall }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-[#10151c] px-3 py-2" data-testid="tool-card">
+    <div className="rounded-xl border border-line bg-surface px-3 py-2" data-testid="tool-card">
       <div className="flex items-center justify-between gap-2">
-        <p className="font-mono text-[11px] text-[#9eb6ff]">{call.name}</p>
+        <p className="font-mono text-[11px] text-brand">{call.name}</p>
         <Badge variant={call.ok ? "ok" : "danger"}>{call.ok ? "done" : "failed"}</Badge>
       </div>
-      <p className="mt-1 text-xs leading-5 text-[#c9d0da]">{call.summary}</p>
+      <p className="mt-1 text-xs leading-5 text-body">{call.summary}</p>
     </div>
   );
 }
@@ -554,23 +558,23 @@ function Monitor({
 }) {
   return (
     <div className="flex h-full flex-col overflow-y-auto p-4">
-      <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[#e7b15a]">Task monitor</p>
-      <h2 className="mt-1 text-sm">Plan, files, tools</h2>
+      <p className="text-xs text-muted">Task monitor</p>
+      <h2 className="mt-1 text-sm font-medium">Plan, files, tools</h2>
 
-      <section className="mt-5">
-        <h3 className="text-xs uppercase tracking-[0.16em] text-[#9aa3b2]">To-do</h3>
+      <section className="mt-6">
+        <h3 className="text-xs font-medium text-muted">To-do</h3>
         {plan.length === 0 ? (
-          <p className="mt-2 text-sm text-[#8b93a1]">{busy ? "Planning the next step." : "Steps show up when a task is running."}</p>
+          <p className="mt-2 text-sm text-muted">{busy ? "Planning the next step." : "Steps show up when a task is running."}</p>
         ) : (
           <ol className="mt-2 space-y-2">
             {plan.map((step) => (
               <li key={step.id} className="flex gap-2 text-sm leading-5">
                 {step.status === "done" ? (
-                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#5ddeaf]" />
+                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-ok" />
                 ) : (
-                  <Circle className={`mt-0.5 h-4 w-4 shrink-0 ${step.status === "next" ? "text-[#e7b15a]" : "text-[#5c6570]"}`} />
+                  <Circle className={`mt-0.5 h-4 w-4 shrink-0 ${step.status === "next" ? "text-brand" : "text-faint"}`} />
                 )}
-                <span className={step.status === "done" ? "text-[#c9d0da]" : "text-[#f3efe6]"}>{step.text}</span>
+                <span className={step.status === "done" ? "text-body" : "text-ink"}>{step.text}</span>
               </li>
             ))}
           </ol>
@@ -578,16 +582,16 @@ function Monitor({
       </section>
 
       <section className="mt-6">
-        <h3 className="flex items-center gap-1 text-xs uppercase tracking-[0.16em] text-[#9aa3b2]">
+        <h3 className="flex items-center gap-1 text-xs font-medium text-muted">
           <FileText className="h-3.5 w-3.5" /> Artifacts
         </h3>
         {artifacts.length === 0 ? (
-          <p className="mt-2 text-sm text-[#8b93a1]">Files written for this task land here.</p>
+          <p className="mt-2 text-sm text-muted">Files written for this task land here.</p>
         ) : (
           <ul className="mt-2 space-y-1">
             {artifacts.map((artifact) => (
               <li key={artifact.id}>
-                <button type="button" onClick={() => onOpen(artifact)} className="w-full truncate rounded-lg px-2 py-1 text-left font-mono text-xs text-[#d5defc] hover:bg-white/6">
+                <button type="button" onClick={() => onOpen(artifact)} className="w-full truncate rounded-lg px-2 py-1 text-left font-mono text-xs text-brand hover:bg-sunken">
                   {artifact.path}
                 </button>
               </li>
@@ -595,7 +599,7 @@ function Monitor({
           </ul>
         )}
         {preview ? (
-          <pre className="mt-3 max-h-64 overflow-auto rounded-xl border border-white/10 bg-black/30 p-3 text-[11px] leading-5 text-[#d7deea]" data-testid="artifact-preview">
+          <pre className="mt-3 max-h-64 overflow-auto rounded-xl border border-line bg-sunken p-3 text-[11px] leading-5 text-body" data-testid="artifact-preview">
             {preview.path}
             {"\n\n"}
             {preview.contents}
@@ -604,11 +608,11 @@ function Monitor({
       </section>
 
       <section className="mt-6">
-        <h3 className="flex items-center gap-1 text-xs uppercase tracking-[0.16em] text-[#9aa3b2]">
+        <h3 className="flex items-center gap-1 text-xs font-medium text-muted">
           <Wrench className="h-3.5 w-3.5" /> Skills & MCP
         </h3>
         {tools.length === 0 ? (
-          <p className="mt-2 text-sm text-[#8b93a1]">Tool calls from the MCP server show up as they run.</p>
+          <p className="mt-2 text-sm text-muted">Tool calls from the MCP server show up as they run.</p>
         ) : (
           <div className="mt-2 flex flex-wrap gap-1">
             {tools.map((name) => (

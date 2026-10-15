@@ -16,6 +16,7 @@ import { buildProgressReport } from "@/lib/progress";
 import { isOnYesterday } from "@/lib/time";
 import type { ConfirmAction, DiffFile, ScaffoldFile, TestResult, ToolResult } from "@/lib/types";
 import { listWorkspaceFiles, readWorkspaceFile, workspaceDir, writeWorkspaceFile } from "@/lib/workspace";
+import { executeWorkTool } from "@/lib/work-tools";
 
 export const TOOL_NAMES = [
   "ingest_transcript",
@@ -42,6 +43,12 @@ export const TOOL_NAMES = [
   "list_workspace",
   "read_file",
   "write_file",
+  "plan_update",
+  "design_draft",
+  "verify_check",
+  "research_collect",
+  "preference_note",
+  "suggest_surface",
 ] as const;
 
 export type ToolName = (typeof TOOL_NAMES)[number];
@@ -274,6 +281,14 @@ function openMeeting(args: Record<string, unknown>): ToolResult {
           { id: "pB", name: "Jordan", label: "B", micOn: false, present: true },
         ]
       : [{ id: nid("p"), name: host, label: host, micOn: false, present: true }];
+  if (Array.isArray(args.team)) {
+    for (const name of args.team) {
+      if (typeof name !== "string" || !name.trim()) continue;
+      const label = name.trim();
+      if (created.participants.some((person) => person.label === label)) continue;
+      created.participants.push({ id: nid("p"), name: label, label, micOn: false, present: true });
+    }
+  }
   const linked = textOf(args.threadId);
   if (linked) created.threadId = linked;
   ensureWorkspace(created.workspaceId, created.title);
@@ -294,6 +309,8 @@ function diffFromScaffold(files: ScaffoldFile[]): DiffFile[] {
 }
 
 export function executeTool(name: string, args: Record<string, unknown> = {}): ToolResult {
+  const worked = executeWorkTool(name, args);
+  if (worked) return worked;
   if (name === "search_memory") return searchMemory(args);
   if (name === "meeting_open") return openMeeting(args);
   if (name === "create_issues" && args.scope === "all") return createIssues(args, "");
@@ -599,6 +616,12 @@ export function toolDefinitions() {
     def("list_workspace", "List files in the meeting workspace.", { meetingId }),
     def("read_file", "Read a file from the meeting workspace. Paths cannot escape the workspace.", { meetingId, path: { type: "string" } }, ["path"]),
     def("write_file", "Write a file into the meeting workspace. Paths cannot escape the workspace.", { meetingId, threadId, path: { type: "string" }, contents: { type: "string" } }, ["path", "contents"]),
+    def("plan_update", "Update the live plan card: goal, milestones, and tasks inferred from the room.", { meetingId, text: { type: "string" } }, ["text"]),
+    def("design_draft", "Draft a design artifact while the room talks: architecture, wireframe, or api.", { meetingId, kind: { type: "string", enum: ["architecture", "wireframe", "api"] }, text: { type: "string" } }, ["kind", "text"]),
+    def("verify_check", "Record a feasibility or fact check against earlier decisions. Running the suite still waits for a yes.", { meetingId, text: { type: "string" } }, ["text"]),
+    def("research_collect", "Collect references from earlier meetings and saved preferences. Mock mode does not invent web citations.", { meetingId, query: { type: "string" } }, ["query"]),
+    def("preference_note", "Remember a team preference for later meetings.", { meetingId, text: { type: "string" } }, ["text"]),
+    def("suggest_surface", "Surface a timely suggestion from earlier decisions without being asked.", { meetingId, text: { type: "string" } }, ["text"]),
   ];
 }
 

@@ -2,6 +2,7 @@ import { getAlexaClient } from "@/alexa/client";
 import { REPLIES } from "@/lib/demo-script";
 import { enqueue } from "@/lib/mutex";
 import { getStore } from "@/lib/meeting-store";
+import { facilitateUtterance } from "@/lib/facilitator";
 import { planTurn, summarizeMeeting } from "@/lib/planner";
 import { providerPublicConfig } from "@/lib/llm";
 import type { PlannedTool } from "@/lib/types";
@@ -131,6 +132,21 @@ async function runTurn(request: Request) {
     return json({ error: error instanceof Error ? error.message : "Planner failed." }, 502);
   }
 
+  if (
+    meeting.scenario === "general" &&
+    planned.classification.kind !== "interrupt" &&
+    planned.classification.kind !== "chatter" &&
+    planned.classification.kind !== "confirm" &&
+    planned.classification.kind !== "reject"
+  ) {
+    const extra = facilitateUtterance(text);
+    if (extra) {
+      planned.classification.tools.push(...extra.tools);
+      planned.classification.reply = extra.reply;
+      planned.classification.silent = false;
+    }
+  }
+
   const url = new URL(request.url);
   const host = request.headers.get("host") || url.host;
   const proto = request.headers.get("x-forwarded-proto") || url.protocol.replace(":", "") || "http";
@@ -246,6 +262,14 @@ export async function routeHttp(request: Request): Promise<Response> {
   if (pathname === "/api/meetings" && request.method === "POST") {
     const { handleMeetingsPost } = await import("@/server/product");
     return handleMeetingsPost(request);
+  }
+  if (pathname === "/api/meetings/schedule" && request.method === "POST") {
+    const { handleSchedule } = await import("@/server/product");
+    return handleSchedule(request);
+  }
+  if (pathname === "/api/meetings/join-code" && request.method === "POST") {
+    const { handleJoinCode } = await import("@/server/product");
+    return handleJoinCode(request);
   }
   if (pathname === "/api/meetings/incident" && request.method === "POST") {
     const { handleIncidentLaunch } = await import("@/server/product");

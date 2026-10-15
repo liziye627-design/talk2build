@@ -14,7 +14,7 @@ import {
   type ThreadRow,
 } from "@/lib/db";
 import { enqueue } from "@/lib/mutex";
-import { getStore } from "@/lib/meeting-store";
+import { emptyMeeting, getStore } from "@/lib/meeting-store";
 import { executeTool } from "@/lib/tools";
 import { providerPublicConfig } from "@/lib/llm";
 import { readWorkspaceFile } from "@/lib/workspace";
@@ -72,7 +72,28 @@ function ensureTaskMeeting(thread: ThreadRow) {
   return id;
 }
 
+function ensurePersonalRoom() {
+  const found = listMeetings().find((item) => item.id === "personal");
+  if (found) return found;
+  const state = emptyMeeting("personal");
+  state.title = "Your room";
+  state.joinCode = "TB-ROOM";
+  state.status = "scheduled";
+  state.scenario = "general";
+  state.workspaceId = "desk";
+  state.participants = [
+    { id: "you", name: "You", label: "You", micOn: false, present: true },
+    { id: "maya", name: "Maya", label: "Maya", micOn: false, present: true },
+    { id: "chris", name: "Chris", label: "Chris", micOn: false, present: true },
+    { id: "priya", name: "Priya", label: "Priya", micOn: false, present: true },
+  ];
+  ensureWorkspace("desk", "Desk");
+  getStore().adopt(state);
+  return getStore().get("personal");
+}
+
 export function handleBootstrap() {
+  ensurePersonalRoom();
   const desk = ensureWorkspace("desk", "Desk");
   const config = providerPublicConfig();
   return json({
@@ -188,7 +209,11 @@ export function handleThreadMessage(request: Request, threadId: string) {
 }
 
 export function handleMeetingsGet() {
-  return json({ meetings: listMeetings().filter((meeting) => meeting.status !== "scheduled") });
+  ensurePersonalRoom();
+  return json({
+    meetings: listMeetings().filter((meeting) => !meeting.id.startsWith("task-")),
+    personalCode: "TB-ROOM",
+  });
 }
 
 export async function handleMeetingsPost(request: Request) {
@@ -197,7 +222,8 @@ export async function handleMeetingsPost(request: Request) {
   const scenario = body.scenario === "incident" ? "incident" : "general";
   const host = typeof body.host === "string" && body.host.trim() ? body.host.trim() : "You";
   const provider = typeof body.provider === "string" ? body.provider : "mock";
-  const opened = executeTool("meeting_open", { title, scenario, host });
+  const team = Array.isArray(body.team) ? body.team.filter((name): name is string => typeof name === "string") : ["Maya", "Chris", "Priya"];
+  const opened = executeTool("meeting_open", { title, scenario, host, team: scenario === "incident" ? [] : team });
   const data = opened.data as { meetingId: string };
   const meeting = getStore().get(data.meetingId);
   ensureWorkspace(meeting.workspaceId, title);
@@ -205,6 +231,35 @@ export async function handleMeetingsPost(request: Request) {
   meeting.threadId = thread.id;
   getStore().persist(meeting.id);
   return json({ meeting, thread }, 201);
+}
+
+export async function handleSchedule(request: Request) {
+  const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+  const title = typeof body.title === "string" && body.title.trim() ? body.title.trim() : "Scheduled meeting";
+  const when = typeof body.when === "string" ? body.when : "";
+  const opened = executeTool("meeting_open", { title, host: "You", team: ["Maya", "Chris", "Priya"] });
+  const data = opened.data as { meetingId: string };
+  const meeting = getStore().get(data.meetingId);
+  meeting.status = "scheduled";
+  meeting.scheduledFor = when || null;
+  ensureWorkspace(meeting.workspaceId, title);
+  const thread = createThread({ title, workspaceId: meeting.workspaceId, meetingId: meeting.id, provider: "mock" });
+  meeting.threadId = thread.id;
+  getStore().persist(meeting.id);
+  return json({ meeting }, 201);
+}
+
+export async function handleJoinCode(request: Request) {
+  const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+  const code = typeof body.code === "string" ? body.code.trim().toUpperCase() : "";
+  if (!code) return json({ error: "Enter a meeting code." }, 400);
+  ensurePersonalRoom();
+  const found = listMeetings().find((item) => item.joinCode.toUpperCase() === code);
+  if (!found) return json({ error: "No meeting with that code." }, 404);
+  const meeting = getStore().ensure(found.id);
+  if (meeting.status === "scheduled") meeting.status = "live";
+  getStore().persist(meeting.id);
+  return json({ meeting: getStore().get(meeting.id) });
 }
 
 export function handleIncidentLaunch() {

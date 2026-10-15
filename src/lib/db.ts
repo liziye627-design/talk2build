@@ -98,6 +98,13 @@ CREATE TABLE IF NOT EXISTS messages (
   tools_json TEXT NOT NULL,
   created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS preferences (
+  id TEXT PRIMARY KEY,
+  key TEXT NOT NULL,
+  value TEXT NOT NULL,
+  source_meeting_id TEXT,
+  updated_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS artifacts (
   id TEXT PRIMARY KEY,
   thread_id TEXT,
@@ -132,6 +139,7 @@ export function getDb() {
     db.exec(SCHEMA);
     g.__talk2buildDb = db;
     seedIfEmpty(db);
+    ensureSamplePreference(db);
   }
   return g.__talk2buildDb;
 }
@@ -144,6 +152,7 @@ export function wipeDb() {
     DELETE FROM threads;
     DELETE FROM meetings;
     DELETE FROM workspaces;
+    DELETE FROM preferences;
   `);
 }
 
@@ -446,4 +455,58 @@ function seedIfEmpty(db: DatabaseSync) {
       "API review ended yesterday. Decision: ship the billing export as a nightly job, not a request-path call. Two action items are still open.",
     tools: { calls: [], plan: [] },
   });
+}
+
+export interface PreferenceRow {
+  id: string;
+  key: string;
+  value: string;
+  sourceMeetingId: string | null;
+  updatedAt: string;
+}
+
+export function listPreferences(): PreferenceRow[] {
+  const rows = getDb().prepare("SELECT id, key, value, source_meeting_id, updated_at FROM preferences ORDER BY updated_at DESC").all() as {
+    id: string;
+    key: string;
+    value: string;
+    source_meeting_id: string | null;
+    updated_at: string;
+  }[];
+  return rows.map((row) => ({
+    id: row.id,
+    key: row.key,
+    value: row.value,
+    sourceMeetingId: row.source_meeting_id,
+    updatedAt: row.updated_at,
+  }));
+}
+
+export function savePreference(input: { key: string; value: string; sourceMeetingId?: string | null }) {
+  const existing = getDb().prepare("SELECT id FROM preferences WHERE key = ?").get(input.key) as { id: string } | undefined;
+  const updatedAt = stamp();
+  if (existing) {
+    getDb()
+      .prepare("UPDATE preferences SET value = ?, source_meeting_id = ?, updated_at = ? WHERE id = ?")
+      .run(input.value, input.sourceMeetingId ?? null, updatedAt, existing.id);
+    return listPreferences().find((item) => item.id === existing.id)!;
+  }
+  const id = nid("pref");
+  getDb()
+    .prepare("INSERT INTO preferences (id, key, value, source_meeting_id, updated_at) VALUES (?, ?, ?, ?, ?)")
+    .run(id, input.key, input.value, input.sourceMeetingId ?? null, updatedAt);
+  return listPreferences().find((item) => item.id === id)!;
+}
+
+function ensureSamplePreference(db: DatabaseSync) {
+  if (process.env.NODE_ENV === "test") return;
+  const row = db.prepare("SELECT id FROM preferences WHERE key = ?").get("exports") as { id: string } | undefined;
+  if (row) return;
+  db.prepare("INSERT INTO preferences (id, key, value, source_meeting_id, updated_at) VALUES (?, ?, ?, ?, ?)").run(
+    "pref_exports",
+    "exports",
+    "The team ships exports as a nightly job, not on the request path.",
+    "review-yesterday",
+    stamp(),
+  );
 }

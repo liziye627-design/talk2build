@@ -3,12 +3,13 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Mic, MicOff, Play, Square } from "lucide-react";
+import { Mic, MicOff, Play, Square, Video, VideoOff } from "lucide-react";
 import { DiffColumn, PoolColumn } from "@/components/room-columns";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { DEMO_SCRIPT } from "@/lib/demo-script";
+import { PLANNING_SCRIPT } from "@/lib/planning-script";
 import { isInterrupt } from "@/lib/classifier";
 import type { MeetingState } from "@/lib/types";
 
@@ -70,7 +71,9 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
   const [listening, setListening] = useState(false);
   const [endedNote, setEndedNote] = useState("");
   const [askInstead, setAskInstead] = useState(false);
-  const [panel, setPanel] = useState<"pool" | "diff">("pool");
+  const [panel, setPanel] = useState<"agent" | "pool" | "diff">("agent");
+  const [cameraOn, setCameraOn] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const stopPlay = useRef(false);
   const recognition = useRef<SpeechRecognition | null>(null);
 
@@ -130,6 +133,26 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
     }
   }
 
+  async function playPlanning() {
+    if (!meeting || playing) return;
+    setPlaying(true);
+    stopPlay.current = false;
+    setBusy(true);
+    setPanel("agent");
+    try {
+      for (const beat of PLANNING_SCRIPT) {
+        if (stopPlay.current) break;
+        await say(beat.text, beat.speaker);
+        await wait(350);
+      }
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Playback stopped.");
+    } finally {
+      setBusy(false);
+      setPlaying(false);
+    }
+  }
+
   async function playScript() {
     if (!meeting || playing) return;
     setPlaying(true);
@@ -146,6 +169,30 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
     } finally {
       setBusy(false);
       setPlaying(false);
+    }
+  }
+
+  const streamRef = useRef<MediaStream | null>(null);
+
+  useEffect(() => {
+    if (!cameraOn || !videoRef.current || !streamRef.current) return;
+    videoRef.current.srcObject = streamRef.current;
+    void videoRef.current.play().catch(() => undefined);
+  }, [cameraOn, speaker]);
+
+  async function toggleCamera() {
+    if (cameraOn) {
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+      setCameraOn(false);
+      return;
+    }
+    try {
+      streamRef.current = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      setCameraOn(true);
+    } catch {
+      setCameraOn(false);
+      setError("Camera stayed off. Avatars stay up for the room.");
     }
   }
 
@@ -194,8 +241,8 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
 
   if (!meeting) {
     return (
-      <div className="flex h-dvh items-center justify-center bg-[#07090d] text-[#f3efe6]">
-        <p className="text-sm text-[#c9d0da]">{error || "Opening the room…"}</p>
+      <div className="flex h-dvh items-center justify-center bg-canvas text-ink">
+        <p className="text-sm text-body">{error || "Opening the room…"}</p>
       </div>
     );
   }
@@ -203,23 +250,28 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
   const captions = meeting.transcript.slice(-2);
 
   return (
-    <div className="flex h-dvh flex-col bg-[#07090d] text-[#f3efe6]" data-testid="meeting-stage">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+    <div className="flex h-dvh flex-col bg-canvas text-ink" data-testid="meeting-stage">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-surface px-6 py-4">
         <div>
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#9aa3b2]">Live room · {meeting.joinCode}</p>
-          <h1 className="text-lg">{meeting.title}</h1>
+          <p className="text-xs text-muted">Live room · {meeting.joinCode}</p>
+          <h1 className="text-base font-semibold tracking-tight">{meeting.title}</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant={meeting.status === "live" ? "ok" : "muted"}>{meeting.status}</Badge>
-          <Link href="/" className="text-sm text-[#9eb6ff]">
-            Tasks
+          <Link href="/" className="text-sm text-brand">
+            Meetings
           </Link>
           {meeting.scenario === "incident" ? (
             <Button variant="secondary" size="sm" onClick={() => void playScript()} disabled={playing || meeting.status === "ended"} data-testid="play-demo">
               <Play className="h-3.5 w-3.5" />
               Play the 2:17 script
             </Button>
-          ) : null}
+          ) : (
+            <Button variant="secondary" size="sm" onClick={() => void playPlanning()} disabled={playing || meeting.status === "ended"} data-testid="play-session">
+              <Play className="h-3.5 w-3.5" />
+              Play a working session
+            </Button>
+          )}
           <Button variant="danger" size="sm" onClick={() => void endMeeting()} disabled={busy || meeting.status === "ended"} data-testid="end-meeting">
             End meeting
           </Button>
@@ -228,46 +280,49 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
 
       <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <section className="flex min-h-0 flex-col">
-          <div className="grid flex-1 grid-cols-2 gap-3 p-4 sm:grid-cols-3">
+          <div className="grid flex-1 content-center grid-cols-2 gap-4 p-6" data-testid="video-grid">
             {meeting.participants.length === 0 ? (
-              <p className="text-sm text-[#8b93a1]">Nobody has joined yet.</p>
+              <p className="text-sm text-muted">Nobody has joined yet.</p>
             ) : (
               meeting.participants.map((person) => {
                 const speaking = meeting.transcript.at(-1)?.speaker === person.label;
+                const self = person.label === speaker;
                 return (
                   <article
                     key={person.id}
-                    className={`flex flex-col justify-between rounded-2xl border p-4 ${speaking ? "border-[#e7b15a]/70 bg-[#e7b15a]/10" : "border-white/10 bg-[#121821]"}`}
+                    className={`relative flex min-h-44 flex-col items-center justify-center overflow-hidden rounded-xl border shadow-card ${speaking ? "border-brand" : "border-line"} bg-surface`}
                   >
-                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/10 text-lg">
-                      {person.name.slice(0, 1)}
-                    </div>
-                    <div className="mt-4">
-                      <p className="text-sm">{person.name}</p>
-                      <p className="mt-1 flex items-center gap-1 text-xs text-[#9aa3b2]">
-                        {person.micOn || (listening && speaker === person.label) ? <Mic className="h-3 w-3 text-[#5ddeaf]" /> : <MicOff className="h-3 w-3" />}
-                        {person.label}
-                      </p>
-                    </div>
+                    {self && cameraOn ? (
+                      <video ref={videoRef} className="absolute inset-0 h-full w-full object-cover" muted playsInline />
+                    ) : (
+                      <div className={`flex h-16 w-16 items-center justify-center rounded-full text-lg font-medium ${speaking ? "bg-brand text-white" : "bg-brand-soft text-brand"}`}>
+                        {person.name.slice(0, 1)}
+                      </div>
+                    )}
+                    <p className="absolute bottom-3 left-3 flex items-center gap-2 rounded-lg border border-line bg-surface px-2 py-1 text-xs shadow-card">
+                      {person.micOn || (listening && self) ? <Mic className="h-3 w-3 text-ok" /> : <MicOff className="h-3 w-3" />}
+                      {person.name}
+                      {speaking ? <span className="text-brand">speaking</span> : null}
+                    </p>
                   </article>
                 );
               })
             )}
           </div>
-          <div className="mx-4 mb-3 min-h-16 rounded-2xl border border-white/10 bg-black/30 px-4 py-3" data-testid="captions">
+          <div className="mx-6 mb-4 min-h-16 rounded-xl border border-line bg-surface px-4 py-3 shadow-card" data-testid="captions">
             {captions.length === 0 ? (
-              <p className="text-sm text-[#8b93a1]">Captions will land here as people talk.</p>
+              <p className="text-sm text-muted">Captions will land here as people talk.</p>
             ) : (
               captions.map((line) => (
                 <p key={line.id} className="text-sm leading-6">
-                  <span className="mr-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[#e7b15a]">{line.speaker}</span>
+                  <span className="mr-2 text-xs font-medium text-brand">{line.speaker}</span>
                   {line.text}
                 </p>
               ))
             )}
           </div>
-          <form onSubmit={(event) => void submit(event)} className="flex flex-wrap items-center gap-2 border-t border-white/10 px-4 py-3">
-            <label className="text-xs text-[#9aa3b2]">
+          <form onSubmit={(event) => void submit(event)} className="flex flex-wrap items-center gap-2 border-t border-line bg-surface px-6 py-4">
+            <label className="text-xs text-muted">
               Speaking as
               <select
                 id="speaking-as"
@@ -275,10 +330,10 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
                 aria-label="Speaking as"
                 value={speaker}
                 onChange={(event) => setSpeaker(event.target.value)}
-                className="ml-2 rounded-full border border-white/10 bg-transparent px-2 py-1 text-sm text-[#f3efe6]"
+                className="ml-2 rounded-lg border border-line bg-surface px-2 py-1 text-sm text-ink"
               >
                 {(meeting.participants.length > 0 ? meeting.participants : [{ label: speaker, name: speaker }]).map((person) => (
-                  <option key={person.label} value={person.label} className="bg-[#121821]">
+                  <option key={person.label} value={person.label} className="bg-surface">
                     {person.name}
                   </option>
                 ))}
@@ -290,31 +345,37 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
               placeholder="Say it, or type it"
-              className="h-10 min-w-0 flex-1 rounded-full border border-white/10 bg-white/5 px-4 text-sm outline-none"
+              className="h-10 min-w-0 flex-1 rounded-lg border border-line bg-canvas px-4 text-sm text-ink outline-none placeholder:text-muted"
               data-testid="meeting-composer"
             />
             <Button type="button" variant={listening ? "danger" : "secondary"} size="icon" onClick={toggleMic} aria-label="Microphone">
               {listening ? <Square className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
             </Button>
+            <Button type="button" variant={cameraOn ? "default" : "secondary"} size="icon" onClick={() => void toggleCamera()} aria-label="Camera">
+              {cameraOn ? <Video className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}
+            </Button>
             <Button type="submit" disabled={busy || !draft.trim()}>
               Send
             </Button>
           </form>
-          {error ? <p className="px-4 pb-3 text-sm text-[#ff8d8d]">{error}</p> : null}
+          {error ? <p className="px-4 pb-3 text-sm text-danger">{error}</p> : null}
         </section>
-        <aside className="hidden min-h-0 border-l border-white/10 p-3 lg:block">
+        <aside className="min-h-0 border-t border-line bg-surface p-5 lg:border-l lg:border-t-0">
           {meeting.status === "ended" && meeting.summary ? (
-            <div className="mb-3 max-h-64 overflow-auto rounded-2xl border border-white/10 bg-[#121821] p-4" data-testid="minutes">
-              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#e7b15a]">Minutes</p>
-              <pre className="mt-2 whitespace-pre-wrap text-xs leading-5 text-[#d7deea]">{meeting.summary.minutes}</pre>
+            <div className="mb-3 max-h-64 overflow-auto rounded-2xl border border-line bg-surface p-4" data-testid="minutes">
+              <p className="text-xs font-medium text-muted">Minutes</p>
+              <pre className="mt-2 whitespace-pre-wrap text-xs leading-5 text-body">{meeting.summary.minutes}</pre>
               {meeting.threadId ? (
-                <button type="button" className="mt-3 text-sm text-[#9eb6ff]" onClick={() => router.push("/")}>
-                  Back to the task
+                <button type="button" className="mt-3 text-sm text-brand" onClick={() => router.push("/tasks")}>
+                  Open the task desk
                 </button>
               ) : null}
             </div>
           ) : null}
           <div className="mb-2 flex gap-1">
+            <Button type="button" size="sm" variant={panel === "agent" ? "default" : "ghost"} onClick={() => setPanel("agent")}>
+              Agent
+            </Button>
             <Button type="button" size="sm" variant={panel === "pool" ? "default" : "ghost"} onClick={() => setPanel("pool")}>
               Pool
             </Button>
@@ -324,18 +385,20 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
               </Button>
             ) : null}
           </div>
-          <div className="h-[calc(100%-3rem)] min-h-0">
+          <div className="h-[calc(100%-3rem)] min-h-0 overflow-y-auto" data-testid="agent-panel">
             {panel === "diff" && meeting.scenario === "incident" ? (
               <DiffColumn state={meeting} animate={false} />
-            ) : (
+            ) : panel === "pool" ? (
               <PoolColumn state={meeting} />
+            ) : (
+              <AgentCards meeting={meeting} />
             )}
           </div>
         </aside>
       </div>
 
-      <details className="border-t border-white/10 px-4 py-2 lg:hidden">
-        <summary className="cursor-pointer text-sm text-[#c9d0da]">Requirement pool</summary>
+      <details className="border-t border-line px-4 py-2 lg:hidden">
+        <summary className="cursor-pointer text-sm text-body">Requirement pool</summary>
         <div className="mt-2 h-80">
           <PoolColumn state={meeting} />
         </div>
@@ -349,9 +412,47 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
       </Dialog>
 
       {endedNote && meeting.status === "ended" ? (
-        <div className="pointer-events-none fixed bottom-4 left-1/2 w-[min(36rem,calc(100%-2rem))] -translate-x-1/2 rounded-2xl border border-[#5ddeaf]/30 bg-[#10211c] px-4 py-3 text-sm text-[#d7f5ea]">
+        <div className="pointer-events-none fixed bottom-4 left-1/2 w-[min(36rem,calc(100%-2rem))] -translate-x-1/2 rounded-2xl border border-ok/30 bg-ok-soft px-4 py-3 text-sm text-ok">
           {endedNote} The notes are on the linked task.
         </div>
+      ) : null}
+    </div>
+  );
+}
+
+function AgentCards({ meeting }: { meeting: MeetingState }) {
+  const suggestion = meeting.suggestions[0];
+  return (
+    <div className="space-y-4 pr-1">
+      {suggestion ? (
+        <p className="rounded-lg bg-brand-soft px-4 py-3 text-sm leading-6 text-brand-deep" data-testid="suggestion">
+          {suggestion.text}
+        </p>
+      ) : (
+        <p className="text-sm leading-6 text-muted">
+          The agent works while you talk. A plan, a design, a check, or a reference shows up here without a separate prompt.
+        </p>
+      )}
+      {meeting.pending ? (
+        <p className="rounded-lg bg-warn-soft px-4 py-3 text-sm leading-6 text-warn" data-testid="confirm-wait">
+          Waiting for a yes. {meeting.pending.prompt}
+        </p>
+      ) : null}
+      {meeting.workstreams.length === 0 ? null : (
+        meeting.workstreams.map((stream) => (
+          <article key={stream.id} className="rounded-xl border border-line bg-canvas p-4" data-testid="workstream">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-medium capitalize text-muted">{stream.kind}</p>
+              <Badge variant={stream.status === "waiting" ? "muted" : "ok"}>{stream.status}</Badge>
+            </div>
+            <h3 className="mt-2 text-sm font-medium">{stream.title}</h3>
+            <p className="mt-1 text-xs leading-5 text-body">{stream.summary}</p>
+            {stream.artifactPath ? <p className="mt-2 font-mono text-[10px] text-muted">{stream.artifactPath}</p> : null}
+          </article>
+        ))
+      )}
+      {meeting.chatter.length > 0 ? (
+        <p className="text-xs leading-5 text-muted">Parked, not in the plan: {meeting.chatter.at(-1)?.text}</p>
       ) : null}
     </div>
   );

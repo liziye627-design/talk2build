@@ -8,6 +8,8 @@ export function renderMinutes(state: MeetingState) {
   const chatter = state.chatter.map((item) => `- ${item.text}`).join("\n") || "- None parked.";
   const transcript =
     state.transcript.map((line) => `- **${line.speaker}:** ${line.text}`).join("\n") || "- The room was quiet.";
+  const work =
+    state.workstreams?.map((item) => `- ${item.title}: ${item.summary}`).join("\n") || "- The agent had not started a workstream.";
   return [
     `# ${state.title}`,
     "",
@@ -24,6 +26,9 @@ export function renderMinutes(state: MeetingState) {
     "",
     "## Chatter left out of the pool",
     chatter,
+    "",
+    "## Agent work",
+    work,
     "",
     "## Transcript",
     transcript,

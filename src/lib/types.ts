@@ -145,6 +145,24 @@ export interface MeetingSummary {
   at: string;
 }
 
+export type WorkKind = "plan" | "design" | "verify" | "research";
+
+export interface Workstream {
+  id: string;
+  kind: WorkKind;
+  title: string;
+  status: "working" | "ready" | "waiting";
+  summary: string;
+  artifactPath?: string;
+  updatedAt: string;
+}
+
+export interface Suggestion {
+  id: string;
+  text: string;
+  at: string;
+}
+
 export interface PendingConfirm {
   id: string;
   prompt: string;
@@ -176,6 +194,9 @@ export interface MeetingState {
   threadId: string | null;
   participants: Participant[];
   summary: MeetingSummary | null;
+  scheduledFor: string | null;
+  workstreams: Workstream[];
+  suggestions: Suggestion[];
   seq: number;
   transcript: TranscriptEntry[];
   timeline: TimelineEvent[];

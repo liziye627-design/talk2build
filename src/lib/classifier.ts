@@ -379,7 +379,10 @@ export function classifyUtterance(input: ClassifyInput): Classification {
     );
   }
 
-  const looksSocial = text.length < 80 && !/\d/.test(text) && !/api|service|redis|deploy|alert|flag|pool/i.test(text);
+  const looksSocial =
+    text.length < 80 &&
+    !/\d/.test(text) &&
+    !/api|service|redis|deploy|alert|flag|pool|test|scaffold|wireframe|architect|goal|milestone|spec/i.test(text);
   if (looksSocial) {
     return plan(
       "chatter",
