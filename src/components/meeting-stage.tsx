@@ -270,6 +270,8 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
             <label className="text-xs text-[#9aa3b2]">
               Speaking as
               <select
+                id="speaking-as"
+                name="speaker"
                 aria-label="Speaking as"
                 value={speaker}
                 onChange={(event) => setSpeaker(event.target.value)}
@@ -283,6 +285,8 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
               </select>
             </label>
             <input
+              id="meeting-composer"
+              name="utterance"
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
               placeholder="Say it, or type it"

@@ -153,6 +153,7 @@ describe("tasks and meetings over HTTP", () => {
     const ended = await fetch(`${server.url}/api/meetings/${body.meeting.id}/end`, { method: "POST" });
     const summary = (await ended.json()) as { meeting: { status: string; summary: { minutes: string } }; threadId: string };
     expect(summary.meeting.status).toBe("ended");
+    expect(summary.meeting.summary.minutes).toMatch(/Status: ended/);
     expect(summary.meeting.summary.minutes).toMatch(/nightly job/);
     const thread = await fetch(`${server.url}/api/threads/${summary.threadId}`);
     const threadBody = (await thread.json()) as { messages: { content: string }[] };

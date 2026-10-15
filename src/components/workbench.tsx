@@ -312,6 +312,8 @@ export function Workbench() {
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-[#8b93a1]" />
             <Input
+              id="task-search"
+              name="task-search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search tasks"
@@ -452,6 +454,8 @@ export function Workbench() {
         >
           <div className="mx-auto max-w-2xl rounded-3xl border border-white/10 bg-[#121821] p-3 shadow-[0_20px_80px_rgba(0,0,0,0.25)]">
             <textarea
+              id="task-composer"
+              name="task"
               data-testid="composer"
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
@@ -469,6 +473,8 @@ export function Workbench() {
               <label className="flex items-center gap-1 rounded-full border border-white/10 px-2 py-1 text-xs text-[#c9d0da]">
                 <FolderOpen className="h-3.5 w-3.5" />
                 <select
+                  id="workspace-picker"
+                  name="workspace"
                   aria-label="Workspace"
                   value={workspaceId}
                   onChange={(event) => setWorkspaceId(event.target.value)}
@@ -483,6 +489,8 @@ export function Workbench() {
               </label>
               <label className="flex items-center gap-1 rounded-full border border-white/10 px-2 py-1 text-xs text-[#c9d0da]">
                 <select
+                  id="model-picker"
+                  name="model"
                   aria-label="Model"
                   value={provider}
                   onChange={(event) => setProvider(event.target.value)}

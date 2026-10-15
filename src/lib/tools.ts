@@ -523,6 +523,7 @@ export function executeTool(name: string, args: Record<string, unknown> = {}): T
       return createIssues(args, id);
     case "meeting_summary": {
       const state = store.get(id);
+      if (textOf(args.ended) === "true") state.status = "ended";
       const minutes = renderMinutes(state);
       const title = `${state.title} minutes`;
       store.writeDoc(id, title, minutes);
@@ -530,7 +531,6 @@ export function executeTool(name: string, args: Record<string, unknown> = {}): T
       writeTracked(id, args, relativePath, minutes, title, "minutes");
       const current = store.get(id);
       current.summary = { title, minutes, at: new Date().toISOString() };
-      if (textOf(args.ended) === "true") current.status = "ended";
       store.persist(id);
       return finish(id, name, { ok: true, summary: `Minutes written for ${state.title}.`, data: current.summary });
     }
