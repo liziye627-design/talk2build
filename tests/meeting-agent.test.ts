@@ -75,5 +75,14 @@ describe("a working session drives the agent panel", () => {
     expect(latest.suggestions[0]?.text).toMatch(/nightly job/);
     expect(latest.pending?.action).toBe("scaffold_code");
     expect(latest.scaffold).toBeNull();
+
+    const yes = await fetch(`${server.url}/api/meetings/${meeting.id}/utterance`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ speaker: "Maya", text: "Yes" }),
+    });
+    const after = ((await yes.json()) as { state: MeetingState }).state;
+    expect(after.pending).toBeNull();
+    expect(after.scaffold?.length).toBeGreaterThan(0);
   }, 20_000);
 });

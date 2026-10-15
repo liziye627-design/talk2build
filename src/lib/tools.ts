@@ -474,6 +474,7 @@ export function executeTool(name: string, args: Record<string, unknown> = {}): T
         (incidentMeeting(id) && !prompt ? FIX_FILES.map((file) => ({ ...file })) : moduleFromPrompt(prompt || "workspace task"));
       store.setScaffold(id, files);
       for (const file of files) writeTracked(id, args, file.path, file.contents, file.path, "code");
+      store.clearPending(id);
       return finish(id, name, { ok: true, summary: `Scaffolded ${files.length} files.`, data: { files } });
     }
     case "pr_draft": {
@@ -515,11 +516,13 @@ export function executeTool(name: string, args: Record<string, unknown> = {}): T
         const tests = evaluateTests(state.scaffold);
         if (state.pullRequest) store.setPullRequest(id, { ...state.pullRequest, tests });
         const passed = tests.every((test) => test.passed);
+        store.clearPending(id);
         return finish(id, name, { ok: true, summary: passed ? "Tests passing." : "Tests failing.", data: { tests, passed } });
       }
       ensureWorkspace(state.workspaceId, state.title);
       const result = runNodeTests(workspaceDir(state.workspaceId));
       if (state.pullRequest) store.setPullRequest(id, { ...store.get(id).pullRequest!, tests: result.tests });
+      store.clearPending(id);
       return finish(id, name, {
         ok: true,
         summary: result.passed ? "Tests passing." : result.tests.length === 0 ? "No tests found." : "Tests failing.",
