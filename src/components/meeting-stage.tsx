@@ -438,6 +438,11 @@ function AgentCards({ meeting }: { meeting: MeetingState }) {
           Waiting for a yes. {meeting.pending.prompt}
         </p>
       ) : null}
+      {meeting.chatter.length > 0 ? (
+        <p className="text-xs leading-5 text-muted" data-testid="parked-chatter">
+          Parked, not in the plan: {meeting.chatter.at(-1)?.text}
+        </p>
+      ) : null}
       {meeting.workstreams.length === 0 ? null : (
         meeting.workstreams.map((stream) => (
           <article key={stream.id} className="rounded-xl border border-line bg-canvas p-4" data-testid="workstream">
@@ -451,9 +456,6 @@ function AgentCards({ meeting }: { meeting: MeetingState }) {
           </article>
         ))
       )}
-      {meeting.chatter.length > 0 ? (
-        <p className="text-xs leading-5 text-muted">Parked, not in the plan: {meeting.chatter.at(-1)?.text}</p>
-      ) : null}
     </div>
   );
 }
