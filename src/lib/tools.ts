@@ -60,6 +60,7 @@ const CONFIRM_ACTIONS = new Set<string>([
   "create_issues",
   "scaffold_code",
   "run_tests",
+  "confirm_conclusion",
   "clear",
 ]);
 
@@ -428,10 +429,21 @@ export function executeTool(name: string, args: Record<string, unknown> = {}): T
         ? args.requirements.filter((item): item is string => typeof item === "string")
         : [];
       const recorded = store.recordDecision(id, speaker, text, requirements);
+      const conclusionId = textOf(args.conclusionId);
+      if (conclusionId) {
+        store.resolveConclusion(id, conclusionId, "confirmed", recorded.decision.id);
+        store.clearPending(id, conclusionId);
+      }
       return finish(id, name, { ok: true, summary: "Decision recorded.", data: recorded });
     }
     case "confirm_ask": {
       if (args.action === "clear") {
+        const conclusionId = textOf(args.conclusionId);
+        if (conclusionId) {
+          store.resolveConclusion(id, conclusionId, "rejected");
+          store.clearPending(id, conclusionId);
+          return finish(id, name, { ok: true, summary: "Conclusion rejected.", data: { pending: store.get(id).pending } });
+        }
         store.clearPending(id);
         return finish(id, name, { ok: true, summary: "Pending confirmation cleared.", data: { pending: null } });
       }

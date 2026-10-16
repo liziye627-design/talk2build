@@ -75,24 +75,37 @@ export class JobRunner {
   }
 }
 
-let runner: JobRunner | null = null;
-let executor: JobExecute | null = null;
+// B9: one runner per process. Next bundles the server action and the HTTP routes as separate module
+// instances; module-level state gave the cancel action its own empty runner, so cancel never reached the job.
+interface RunnerGlobal {
+  __talk2buildRunner?: { runner: JobRunner | null; executor: JobExecute | null };
+}
+const slot = (() => {
+  const g = globalThis as typeof globalThis & RunnerGlobal;
+  if (!g.__talk2buildRunner) g.__talk2buildRunner = { runner: null, executor: null };
+  return g.__talk2buildRunner;
+})();
+
+/** Module-load registration: a second bundle loading dispatch must not drop the live runner and its jobs. */
+export function ensureJobExecutor(execute: JobExecute) {
+  if (!slot.executor) slot.executor = execute;
+}
 
 export function bindJobExecutor(execute: JobExecute) {
-  executor = execute;
-  runner = null;
+  slot.executor = execute;
+  slot.runner = null;
 }
 
 export function getJobRunner() {
-  if (!runner) {
-    if (!executor) throw new Error("Job runner has no executor.");
-    runner = new JobRunner(3, executor);
+  if (!slot.runner) {
+    if (!slot.executor) throw new Error("Job runner has no executor.");
+    slot.runner = new JobRunner(3, slot.executor);
   }
-  return runner;
+  return slot.runner;
 }
 
 export function resetJobRunner(execute?: JobExecute) {
-  runner?.cancelAll();
-  if (execute) executor = execute;
-  runner = null;
+  slot.runner?.cancelAll();
+  if (execute) slot.executor = execute;
+  slot.runner = null;
 }

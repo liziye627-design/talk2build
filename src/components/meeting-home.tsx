@@ -1,5 +1,6 @@
 "use client";
 
+import { STATUS_LABEL } from "@/lib/branding";
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarPlus, LogIn, MonitorUp, Video } from "lucide-react";
@@ -151,9 +152,10 @@ export function MeetingHome() {
                   disabled={busy}
                   data-testid={action.id === "quick" ? "start-meeting" : action.id === "join" ? "join-meeting" : action.id === "schedule" ? "schedule-meeting" : undefined}
                   onClick={() => onAction(action.id)}
+                  aria-label={action.label}
                   className="flex w-16 flex-col items-center gap-3 text-[13px] text-[#222] disabled:opacity-50"
                 >
-                  <span className="flex h-14 w-14 items-center justify-center rounded-full bg-[#006fff] text-white">
+                  <span className="flex h-14 w-14 items-center justify-center rounded-full bg-[#006fff] text-white" aria-hidden="true">
                     <Icon className="h-6 w-6" strokeWidth={1.75} />
                   </span>
                   {action.label}
@@ -178,7 +180,7 @@ export function MeetingHome() {
               ) : (
                 recent.map((meeting) => (
                   <li key={meeting.id} className="flex items-center gap-6 py-4">
-                    <span className="w-28 shrink-0 text-xs text-[#8d8d8d]">{meeting.scheduledFor ? meeting.scheduledFor.replace("T", " ").slice(0, 16) : meeting.status}</span>
+                    <span className="w-28 shrink-0 text-xs text-[#8d8d8d]">{meeting.scheduledFor ? meeting.scheduledFor.replace("T", " ").slice(0, 16) : (STATUS_LABEL[meeting.status as keyof typeof STATUS_LABEL] ?? meeting.status)}</span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm">{meeting.title}</span>
                       <span className="mt-1 block text-xs text-[#8d8d8d]">{meeting.joinCode}</span>

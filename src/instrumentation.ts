@@ -8,4 +8,6 @@ export async function register() {
   }
   const { assertProductionToken } = await import("@/server/oauth");
   assertProductionToken();
+  const { assertProductionSessionSecret } = await import("@/server/meeting-session");
+  assertProductionSessionSecret();
 }

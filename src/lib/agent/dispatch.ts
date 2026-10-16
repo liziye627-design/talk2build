@@ -1,14 +1,18 @@
 import { draftArtifact, writeArtifact } from "@/lib/agent/artifacts";
 import { agentModelLabel, extractMeetingTurn, resolveAgentBackend } from "@/lib/agent/model";
-import { bindJobExecutor, getJobRunner } from "@/lib/agent/runner";
+import { bindJobExecutor, ensureJobExecutor, getJobRunner } from "@/lib/agent/runner";
 import type { AgentJob } from "@/lib/agent/types";
-import { claimNeedsEvidence } from "@/lib/evidence/claim";
-import { collectEvidence } from "@/lib/evidence/fetch";
+import { collectEvidenceCached } from "@/lib/evidence/cache";
 import { debateFromEvidence, evidenceMarkdown, reviewFromEvidence, selectFromEvidence } from "@/lib/evidence/select";
 import { memoryFor } from "@/lib/work-tools";
 import { getStore } from "@/lib/meeting-store";
+import { routeSeatUtterance, syncSeatParticipants } from "@/lib/seats/orchestrator";
 import { executeTool } from "@/lib/tools";
+import { isDeferral } from "@/lib/classifier";
 import type { MeetingState, WorkKind, WorkStatus, Workstream } from "@/lib/types";
+
+/** C2: the card never shows the raw error (it can carry paths or provider detail); the server log keeps it. */
+export const JOB_FAILED_SUMMARY = "任务失败，已记录日志";
 
 function paceMs() {
   if (process.env.VITEST || process.env.NODE_ENV === "test") return 0;
@@ -41,12 +45,19 @@ function abortError() {
   return error;
 }
 
-function publish(meetingId: string, draft: Omit<Workstream, "id" | "updatedAt"> & { id?: string }) {
+const TERMINAL: ReadonlySet<WorkStatus> = new Set<WorkStatus>(["cancelled"]);
+
+/**
+ * B9: the single write path for job/card status. Cards are keyed by jobId; a card already in a terminal
+ * state (cancelled, incl. failed) is never overwritten by a later write for the same job.
+ */
+export function setJobStatus(meetingId: string, draft: Omit<Workstream, "id" | "updatedAt"> & { id?: string }) {
   const store = getStore();
   const state = store.ensure(meetingId);
   const current = draft.jobId
     ? state.workstreams.find((item) => item.jobId === draft.jobId)
-    : state.workstreams.find((item) => item.kind === draft.kind && item.title === draft.title);
+    : state.workstreams.find((item) => !item.jobId && item.kind === draft.kind && item.title === draft.title);
+  if (current && draft.jobId && TERMINAL.has(current.status)) return current;
   const next: Workstream = {
     id: current?.id ?? `work_${state.seq + 1}`,
     kind: draft.kind,
@@ -60,6 +71,8 @@ function publish(meetingId: string, draft: Omit<Workstream, "id" | "updatedAt"> 
     evidence: draft.evidence ?? current?.evidence,
     selection: draft.selection ?? current?.selection,
     debate: draft.debate ?? current?.debate,
+    debateGenerated: draft.debateGenerated ?? current?.debateGenerated,
+    evidenceCachedAt: draft.evidenceCachedAt,
     updatedAt: new Date().toISOString(),
   };
   state.seq += 1;
@@ -77,7 +90,7 @@ async function runMeetingJob(job: AgentJob, signal: AbortSignal) {
     }
     for (const step of steps) {
       if (signal.aborted) throw abortError();
-      publish(job.meetingId, {
+      setJobStatus(job.meetingId, {
         kind: job.kind,
         title: job.title,
         status: "working",
@@ -91,7 +104,7 @@ async function runMeetingJob(job: AgentJob, signal: AbortSignal) {
     const artifact = await draftArtifact(job);
     if (signal.aborted) throw abortError();
     const artifactPath = writeArtifact(job.meetingId, artifact);
-    publish(job.meetingId, {
+    setJobStatus(job.meetingId, {
       kind: job.kind,
       title: job.title,
       status: "ready",
@@ -104,7 +117,7 @@ async function runMeetingJob(job: AgentJob, signal: AbortSignal) {
     getStore().addTrace(job.meetingId, { tool: job.kind, ok: true, summary: artifact.summary });
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
-      publish(job.meetingId, {
+      setJobStatus(job.meetingId, {
         kind: job.kind,
         title: job.title,
         status: "cancelled",
@@ -115,11 +128,12 @@ async function runMeetingJob(job: AgentJob, signal: AbortSignal) {
       });
       return;
     }
-    publish(job.meetingId, {
+    console.error(`[talk2build] job ${job.id} failed:`, error instanceof Error ? error.message : error);
+    setJobStatus(job.meetingId, {
       kind: job.kind,
       title: job.title,
       status: "cancelled",
-      summary: error instanceof Error ? error.message : "The job failed.",
+      summary: JOB_FAILED_SUMMARY,
       progress: "Failed",
       jobId: job.id,
       speaker: job.speaker,
@@ -127,23 +141,10 @@ async function runMeetingJob(job: AgentJob, signal: AbortSignal) {
   }
 }
 
-function seatEngineers(meetingId: string) {
-  const store = getStore();
-  const state = store.ensure(meetingId);
-  for (const person of [
-    { name: "Architect", label: "Architect" },
-    { name: "Skeptic", label: "Skeptic" },
-  ]) {
-    if (state.participants.some((item) => item.label === person.label)) continue;
-    state.participants.push({ id: `p_${person.label.toLowerCase()}`, name: person.name, label: person.label, micOn: false, present: true });
-  }
-  store.persist(meetingId);
-}
-
 async function runEvidenceJob(job: AgentJob, signal: AbortSignal) {
   if (signal.aborted) throw abortError();
-  seatEngineers(job.meetingId);
-  publish(job.meetingId, {
+  syncSeatParticipants(job.meetingId);
+  setJobStatus(job.meetingId, {
     kind: "evidence",
     title: "Evidence",
     status: "working",
@@ -152,7 +153,7 @@ async function runEvidenceJob(job: AgentJob, signal: AbortSignal) {
     jobId: job.id,
     speaker: job.speaker,
   });
-  const report = await collectEvidence(job.brief, fetch, signal);
+  const { report, cachedAt } = await collectEvidenceCached(job.brief, fetch, signal);
   if (signal.aborted) throw abortError();
   const selection = selectFromEvidence(report);
   const review = reviewFromEvidence(report, selection);
@@ -161,7 +162,7 @@ async function runEvidenceJob(job: AgentJob, signal: AbortSignal) {
     summary: selection.recommendation,
     body: evidenceMarkdown(report, selection),
   });
-  publish(job.meetingId, {
+  setJobStatus(job.meetingId, {
     kind: "evidence",
     title: "Evidence",
     status: "ready",
@@ -171,17 +172,19 @@ async function runEvidenceJob(job: AgentJob, signal: AbortSignal) {
     jobId: job.id,
     speaker: job.speaker,
     evidence: report,
+    evidenceCachedAt: cachedAt ?? undefined,
   });
-  publish(job.meetingId, {
+  setJobStatus(job.meetingId, {
     kind: "selection",
     title: "Tech selection",
     status: "ready",
-    summary: selection.recommendation,
+    // E10: a recommendation is never a decision; it waits for a human and is not written to decision_record.
+    summary: `待人确认：${selection.recommendation}`,
     progress: selection.confidence,
     speaker: job.speaker,
     selection,
   });
-  publish(job.meetingId, {
+  setJobStatus(job.meetingId, {
     kind: "review",
     title: "Requirement review",
     status: "ready",
@@ -192,31 +195,30 @@ async function runEvidenceJob(job: AgentJob, signal: AbortSignal) {
   getStore().addTrace(job.meetingId, { tool: "evidence", ok: true, summary: selection.recommendation });
 }
 
-function mentionDebate(text: string) {
-  return /@(architect|skeptic)\b/i.test(text);
-}
-
+/**
+ * S9: debateFromEvidence is deterministic text built from the evidence card. It is attached to the
+ * card as an annotation marked "基于证据自动生成" and is never spoken as a seat. The conclusion it
+ * carries waits for a human (status "waiting") and is not written to decision_record.
+ */
 function publishDebate(meetingId: string, speaker: string) {
-  seatEngineers(meetingId);
   const state = getStore().get(meetingId);
   const evidenceCard = state.workstreams.find((item) => item.kind === "evidence" && item.evidence);
+  if (!evidenceCard) return;
   const selectionCard = state.workstreams.find((item) => item.kind === "selection" && item.selection);
-  const debate = debateFromEvidence(evidenceCard?.evidence, selectionCard?.selection);
-  const store = getStore();
-  store.ingest(meetingId, { speaker: "Architect", text: debate.architect, kind: "reply" });
-  store.ingest(meetingId, { speaker: "Skeptic", text: debate.skeptic, kind: "reply" });
-  publish(meetingId, {
+  const debate = debateFromEvidence(evidenceCard.evidence, selectionCard?.selection);
+  setJobStatus(meetingId, {
     kind: "conclusion",
     title: "Conclusion",
-    status: "ready",
-    summary: debate.conclusion,
-    progress: "Saved",
+    status: "waiting",
+    summary: `待人确认：${debate.conclusion}`,
+    progress: "基于证据自动生成",
     speaker,
     debate,
+    debateGenerated: "evidence",
   });
 }
 
-bindJobExecutor(runMeetingJob);
+ensureJobExecutor(runMeetingJob);
 
 export function useDefaultJobRunner() {
   bindJobExecutor(runMeetingJob);
@@ -232,7 +234,10 @@ export async function prepareAgentWork(input: { meetingId: string; speaker: stri
   const store = getStore();
   const state = store.ensure(input.meetingId);
   if (state.scenario !== "general") return;
-  if (mentionDebate(input.text) && !claimNeedsEvidence(input.text)) publishDebate(input.meetingId, input.speaker);
+  // F2: @seat / debate requests go to the seat orchestrator before normal extraction.
+  const seat = routeSeatUtterance(input);
+  if (seat.offlineDebate) publishDebate(input.meetingId, input.speaker);
+  if (seat.handled) return;
   const extraction = await extractMeetingTurn({
     meetingId: input.meetingId,
     speaker: input.speaker,
@@ -240,6 +245,8 @@ export async function prepareAgentWork(input: { meetingId: string; speaker: stri
     context: meetingContext(state),
   });
   if (extraction.chatter) return;
+  // B10: evaluated once per utterance; a deferral drops code / confirm-gated jobs from any extraction source.
+  const deferred = isDeferral(input.text);
   for (const decision of extraction.decisions) {
     executeTool("decision_record", { meetingId: input.meetingId, speaker: decision.speaker, text: decision.text });
   }
@@ -252,7 +259,11 @@ export async function prepareAgentWork(input: { meetingId: string; speaker: stri
     const hit = memoryFor(research.brief).decisions[0];
     if (hit) rememberSuggestion(input.meetingId, `From earlier: ${hit}`);
   }
-  for (const item of extraction.jobs) {
+  for (const extracted of extraction.jobs) {
+    // B9 side fix: job ids are derived from title+brief, so repeating a request reused the old id and card.
+    const taken = (id: string) => store.get(input.meetingId).workstreams.some((w) => w.jobId === id) || store.get(input.meetingId).confirmQueue.some((q) => q.payload?.jobId === id);
+    if (deferred && (extracted.kind === "code" || extracted.needsConfirm)) continue;
+    const item = taken(extracted.id) ? { ...extracted, id: `${extracted.id}-${store.get(input.meetingId).seq + 1}` } : extracted;
     if (item.needsConfirm || item.kind === "code") {
       const prompt = `I'll scaffold ${item.title}. ${item.brief} Say yes to confirm ${item.id}.`;
       executeTool("confirm_ask", {
@@ -261,7 +272,7 @@ export async function prepareAgentWork(input: { meetingId: string; speaker: stri
         prompt,
         payload: { prompt: item.brief, jobId: item.id, title: item.title },
       });
-      publish(input.meetingId, {
+      setJobStatus(input.meetingId, {
         kind: "code",
         title: item.title,
         status: "waiting",
@@ -272,7 +283,7 @@ export async function prepareAgentWork(input: { meetingId: string; speaker: stri
       });
       continue;
     }
-    publish(input.meetingId, {
+    setJobStatus(input.meetingId, {
       kind: item.kind as WorkKind,
       title: item.title,
       status: "working" as WorkStatus,
@@ -304,7 +315,7 @@ export function cancelAgentJob(meetingId: string, jobId: string) {
   const state = getStore().ensure(meetingId);
   const card = state.workstreams.find((item) => item.jobId === jobId);
   if (card && card.status === "working") {
-    publish(meetingId, { ...card, status: "cancelled", summary: "Cancelled.", progress: "Cancelled" });
+    setJobStatus(meetingId, { ...card, status: "cancelled", summary: "Cancelled.", progress: "Cancelled" });
   }
   return cancelled || Boolean(card);
 }
@@ -314,7 +325,7 @@ export function cancelMeetingJobs(meetingId: string) {
   const state = getStore().ensure(meetingId);
   for (const card of state.workstreams) {
     if (card.status === "working") {
-      publish(meetingId, { ...card, status: "cancelled", summary: "Cancelled when the meeting ended.", progress: "Cancelled" });
+      setJobStatus(meetingId, { ...card, status: "cancelled", summary: "Cancelled when the meeting ended.", progress: "Cancelled" });
     }
   }
 }

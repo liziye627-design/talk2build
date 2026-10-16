@@ -1,4 +1,6 @@
 import { planChat, finishSteps } from "@/lib/chat-planner";
+import { syncSeatParticipants } from "@/lib/seats/orchestrator";
+import { withSessionCookie } from "@/server/meeting-session";
 import {
   addMessage,
   createThread,
@@ -225,6 +227,7 @@ export async function handleMeetingsPost(request: Request) {
   const team = Array.isArray(body.team) ? body.team.filter((name): name is string => typeof name === "string") : ["Maya", "Chris", "Priya"];
   const opened = executeTool("meeting_open", { title, scenario, host, team: scenario === "incident" ? [] : team });
   const data = opened.data as { meetingId: string };
+  if (scenario === "general") syncSeatParticipants(data.meetingId);
   const meeting = getStore().get(data.meetingId);
   ensureWorkspace(meeting.workspaceId, title);
   const thread = createThread({ title, workspaceId: meeting.workspaceId, meetingId: meeting.id, provider });
@@ -281,11 +284,14 @@ export function handleIncidentLaunch() {
   return json({ meeting: store.get("demo"), thread: getThread(thread.id) });
 }
 
-export function handleMeetingGet(id: string) {
+export function handleMeetingGet(id: string, request?: Request) {
   const meeting = listMeetings().find((item) => item.id === id) ?? null;
   if (!meeting) return json({ error: "Meeting not found." }, 404);
-  getStore().ensure(id);
-  return json({ meeting: getStore().get(id) });
+  const state = getStore().ensure(id);
+  // B6: AI seats show up on first load (offline without a model key), no refresh needed.
+  if (state.scenario === "general") syncSeatParticipants(id);
+  // C1: the browser gets a meeting-scoped session cookie for cancel.
+  return withSessionCookie(json({ meeting: getStore().get(id) }), id, request);
 }
 
 export async function handleMeetingJoin(request: Request, id: string) {
@@ -301,7 +307,7 @@ export async function handleMeetingJoin(request: Request, id: string) {
   }
   meeting.status = "live";
   getStore().persist(id);
-  return json({ meeting: getStore().get(id) });
+  return withSessionCookie(json({ meeting: getStore().get(id) }), id, request);
 }
 
 export async function handleMeetingMic(request: Request, id: string) {

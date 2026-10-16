@@ -131,7 +131,12 @@ export type ConfirmAction =
   | "write_doc"
   | "create_issues"
   | "scaffold_code"
-  | "run_tests";
+  | "run_tests"
+  | "confirm_conclusion";
+
+export type SeatId = "architect" | "skeptic";
+
+export type SeatAvailability = "online" | "offline" | "demo";
 
 export interface Participant {
   id: string;
@@ -139,6 +144,60 @@ export interface Participant {
   label: string;
   micOn: boolean;
   present: boolean;
+  kind?: "human" | "ai";
+  seatId?: SeatId;
+  aiStatus?: "online" | "offline" | "speaking" | "demo";
+}
+
+export interface Citation {
+  kind: "decision" | "requirement" | "evidence";
+  refId: string;
+  label: string;
+}
+
+export interface SeatTurn {
+  id: string;
+  seatId: SeatId;
+  debateId: string | null;
+  round: number;
+  text: string;
+  citations: Citation[];
+  status: "done" | "interrupted";
+  at: string;
+}
+
+export interface SeatDebate {
+  id: string;
+  topic: string;
+  maxRounds: number;
+  round: number;
+  status: "running" | "concluded" | "interrupted" | "failed";
+  turns: string[];
+  conclusionId: string | null;
+  startedAt: string;
+}
+
+export interface ConclusionCard {
+  id: string;
+  debateId: string;
+  topic: string;
+  recommendation: string;
+  reasons: string[];
+  risks: string[];
+  humanDecisions: string[];
+  citations: Citation[];
+  status: "pending" | "confirmed" | "rejected" | "incomplete";
+  decisionId?: string;
+}
+
+export interface SeatRequest {
+  id: string;
+  kind: "ask" | "debate";
+  seats: SeatId[];
+  text: string;
+  topic: string | null;
+  speaker: string;
+  at: string;
 }
 
 export interface MeetingSummary {
@@ -164,6 +223,10 @@ export interface Workstream {
   evidence?: EvidenceReport;
   selection?: TechSelection;
   debate?: Debate;
+  /** "evidence" marks text produced deterministically by debateFromEvidence, never by a seat (S9). */
+  debateGenerated?: "evidence";
+  /** Set when the evidence report came from the 10-minute cache (E5). */
+  evidenceCachedAt?: string;
   updatedAt: string;
 }
 
@@ -225,6 +288,11 @@ export interface MeetingState {
   progress: ProgressReport[];
   toolTrace: ToolTraceEntry[];
   substantiveTurns: number;
+  /** Multi-AI seats (F2). Optional so meetings persisted before this change still load. */
+  seatTurns?: SeatTurn[];
+  seatDebates?: SeatDebate[];
+  conclusions?: ConclusionCard[];
+  seatQueue?: SeatRequest[];
   updatedAt: string;
 }
 

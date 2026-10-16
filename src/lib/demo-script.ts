@@ -1,16 +1,14 @@
 import type { SpeakerId } from "@/lib/types";
 
 export const REPLIES = {
-  event: "Logged. 2:17 AM, orders API, 40% errors.",
-  correlate: "Correlated: Redis pressure started two minutes before the errors.",
-  deploy:
-    "Found it — batch-reconcile v2.3 deployed at 11:40 PM. Want me to pull the diff?",
-  diff: "The diff shows the pool was shrunk from 50 to 20 connections, and no timeout was set.",
-  decision:
-    "Root cause logged. I'm drafting the fix PR — pool rollback, timeouts, and a pool-exhaustion alert. Say the word and I'll open it.",
-  todos: "Two action items captured.",
-  pr: "PR draft ready. Three files changed, tests passing.",
-  interrupt: "Rolled back to the last checkpoint. What do you want instead?",
+  event: "已记录：凌晨 2:17，orders API，40% 报错。",
+  correlate: "已关联：Redis 压力比报错早两分钟开始上升。",
+  deploy: "找到了：batch-reconcile v2.3 在晚上 11:40 部署。要我拉取 diff 吗？",
+  diff: "diff 显示连接池从 50 缩到了 20，而且没有设置超时。",
+  decision: "根因已记录。我正在起草修复 PR：回滚连接池、加超时、加连接池耗尽告警。你说一声我就打开它。",
+  todos: "已记录 2 条待办。",
+  pr: "PR 草稿已就绪：改了 3 个文件，测试通过。",
+  interrupt: "已回滚到上一个检查点。你希望换成什么？",
 } as const;
 
 export interface DemoBeat {

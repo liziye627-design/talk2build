@@ -8,7 +8,11 @@ export interface EvidenceMetric {
   sourceUrl: string;
   fetchedAt: string;
   error?: string;
+  /** Structured failure class, set whenever error is set (E4). */
+  errorCode?: EvidenceErrorCode;
 }
+
+export type EvidenceErrorCode = "timeout" | "not_found" | "rate_limited" | "network" | "parse";
 
 export interface EvidenceOption {
   label: string;

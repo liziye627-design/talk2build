@@ -2,6 +2,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { nodeStartupError } from "../../scripts/check-node.mjs";
 import { routeHttp } from "@/server/routes";
 import { assertProductionToken } from "@/server/oauth";
+import { assertProductionSessionSecret } from "@/server/meeting-session";
 
 async function readBody(req: IncomingMessage) {
   const chunks: Buffer[] = [];
@@ -38,6 +39,7 @@ export function startServer(port = 0, host = "127.0.0.1") {
   const nodeMessage = nodeStartupError();
   if (nodeMessage) throw new Error(nodeMessage);
   assertProductionToken();
+  assertProductionSessionSecret();
   const server = createServer(async (req, res) => {
     try {
       const address = server.address();

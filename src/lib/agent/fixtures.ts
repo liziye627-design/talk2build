@@ -4,7 +4,7 @@ import { claimNeedsEvidence } from "@/lib/evidence/claim";
 const JOB_KINDS = new Set(["plan", "design", "verify", "research", "code", "evidence", "selection", "review", "conclusion"]);
 
 function slug(value: string) {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "item";
+  return value.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "item";
 }
 
 function job(meetingId: string, speaker: string, kind: AgentJob["kind"], title: string, brief: string, needsConfirm = false): AgentJob {
@@ -66,14 +66,21 @@ export function recordedExtraction(meetingId: string, speaker: string, text: str
   return null;
 }
 
+// Chinese keywords are deliberately not wrapped in \b (ASCII-only boundary, never matches CJK).
+const CODE_PATTERN = /scaffold|run (the )?tests|write (the )?code|写代码|写.{0,12}代码|实现一下|生成代码|搭.{0,6}脚手架|跑一下测试|运行测试/i;
+const PLAN_PATTERN = /\b(goal|milestone|plan)\b|规划|计划|里程碑|目标/i;
+const DESIGN_PATTERN = /architect|diagram|worker|设计|架构|画.{0,4}图/i;
+const VERIFY_PATTERN = /feasib|validate|check that|verify|验证|校验|可行/i;
+const RESEARCH_PATTERN = /already decided|look up|what did we|reference|research|pull what|调研|查一下|查查|资料|选型|哪个.{0,8}库/i;
+
 function codeClauses(text: string) {
   const pieces = text
     .split(/\s+and\s+/i)
     .map((part) => part.trim())
     .filter(Boolean);
-  const hits = pieces.filter((part) => /scaffold|run (the )?tests/i.test(part));
+  const hits = pieces.filter((part) => CODE_PATTERN.test(part));
   if (hits.length > 1) return hits;
-  if (/scaffold|run (the )?tests/i.test(text)) return [text.replace(/\s+/g, " ").trim()];
+  if (CODE_PATTERN.test(text)) return [text.replace(/\s+/g, " ").trim()];
   return [];
 }
 
@@ -81,13 +88,13 @@ export function keywordExtraction(meetingId: string, speaker: string, text: stri
   const recorded = recordedExtraction(meetingId, speaker, text);
   if (recorded) return recorded;
   const jobs: AgentJob[] = [];
-  if (/\b(goal|milestone|plan)\b/i.test(text)) jobs.push(job(meetingId, speaker, "plan", "Plan", text));
+  if (PLAN_PATTERN.test(text)) jobs.push(job(meetingId, speaker, "plan", "Plan", text));
   const designText = text.replace(/@architect\b/gi, "");
   if (/wireframe|mockup|settings screen/i.test(designText)) jobs.push(job(meetingId, speaker, "design", "Settings wireframe", text));
-  else if (/architect|diagram|worker/i.test(designText)) jobs.push(job(meetingId, speaker, "design", "Architecture", text));
+  else if (DESIGN_PATTERN.test(designText)) jobs.push(job(meetingId, speaker, "design", "Architecture", text));
   if (/\bAPI\b|endpoint|POST \//i.test(text)) jobs.push(job(meetingId, speaker, "design", "API spec", text));
-  if (/feasib|validate|check that|verify/i.test(text)) jobs.push(job(meetingId, speaker, "verify", "Feasibility", text));
-  if (/already decided|look up|what did we|reference|research|pull what/i.test(text)) {
+  if (VERIFY_PATTERN.test(text)) jobs.push(job(meetingId, speaker, "verify", "Feasibility", text));
+  if (RESEARCH_PATTERN.test(text)) {
     jobs.push(job(meetingId, speaker, "research", "Research", text));
   }
   for (const clause of codeClauses(text)) {

@@ -1,5 +1,5 @@
 import { parseTargets, questionKind } from "@/lib/evidence/claim";
-import type { EvidenceMetric, EvidenceOption, EvidenceReport, PackageTarget } from "@/lib/evidence/types";
+import type { EvidenceErrorCode, EvidenceMetric, EvidenceOption, EvidenceReport, PackageTarget } from "@/lib/evidence/types";
 
 const GITHUB_HEADERS = {
   accept: "application/vnd.github+json",
@@ -18,8 +18,16 @@ function textMetric(name: string, text: string, sourceUrl: string, fetchedAt: st
   return { name, value: null, text, unit: "", sourceUrl, fetchedAt };
 }
 
+export function errorCodeFor(error: string): EvidenceErrorCode {
+  if (/timeout|timed out|abort/i.test(error)) return "timeout";
+  if (/\b(403|429)\b|rate limit/i.test(error)) return "rate_limited";
+  if (/\b404\b|no latest release|not found/i.test(error)) return "not_found";
+  if (/response had no|json|unexpected token|parse/i.test(error)) return "parse";
+  return "network";
+}
+
 function failed(name: string, sourceUrl: string, fetchedAt: string, error: string): EvidenceMetric {
-  return { name, value: null, text: null, unit: "", sourceUrl, fetchedAt, error };
+  return { name, value: null, text: null, unit: "", sourceUrl, fetchedAt, error, errorCode: errorCodeFor(error) };
 }
 
 async function readJson(response: Response): Promise<unknown> {

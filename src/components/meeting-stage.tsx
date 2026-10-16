@@ -1,5 +1,6 @@
 "use client";
 
+import { ASSISTANT_NAME } from "@/lib/branding";
 import { useCallback, useEffect, useRef, useState, type FormEvent, type RefObject } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -296,7 +297,7 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
 
       <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px]">
         <section className="relative flex min-h-0 flex-col">
-          <div className={`grid min-h-0 flex-1 gap-1.5 p-2 ${view === "speaker" ? "grid-cols-[minmax(0,1fr)_148px]" : "grid-cols-2 content-center"}`} data-testid="video-grid">
+          <div className={`grid min-h-0 flex-1 gap-1.5 p-2 ${view === "speaker" ? "grid-cols-[minmax(0,1fr)_148px] pb-16" : `${gridCols(meeting.participants.length)} auto-rows-fr pb-16`}`} data-testid="video-grid" style={drawer !== "none" ? { marginRight: "18rem" } : undefined}>
             {meeting.participants.length === 0 ? (
               <p className="text-sm text-white/50">还没有人入会。</p>
             ) : view === "speaker" ? (
@@ -332,13 +333,13 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
             )}
           </div>
           {sharing ? <p className="pointer-events-none absolute left-3 top-3 rounded bg-[#006fff] px-2 py-1 text-xs">正在共享屏幕</p> : null}
-          <div className="pointer-events-none absolute inset-x-4 bottom-3 rounded bg-black/55 px-3 py-2" data-testid="captions">
+          <div style={drawer !== "none" ? { right: "19rem" } : undefined} className="pointer-events-none absolute inset-x-4 bottom-3 max-h-14 overflow-hidden rounded bg-black/55 px-3 py-2" data-testid="captions">
             {captions.length === 0 ? (
               <p className="text-sm text-white/50">字幕会显示在这里。</p>
             ) : (
               captions.map((line) => (
                 <p key={line.id} className="text-sm leading-6">
-                  <span className="mr-2 text-xs text-[#7eb6ff]">{line.speaker}</span>
+                  <span className="mr-2 text-xs text-[#7eb6ff]">{displaySpeaker(line.speaker)}</span>
                   {line.text}
                 </p>
               ))
@@ -367,7 +368,7 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
                     {meeting.transcript.length === 0 ? <p className="text-sm text-[#888]">还没有消息。</p> : null}
                     {meeting.transcript.map((line) => (
                       <p key={line.id} className="text-sm leading-6">
-                        <span className="mr-2 text-xs text-[#006fff]">{line.speaker}</span>
+                        <span className="mr-2 text-xs text-[#006fff]">{displaySpeaker(line.speaker)}</span>
                         {line.text}
                       </p>
                     ))}
@@ -375,8 +376,8 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
                   <form onSubmit={(event) => void submit(event)} className="border-t border-[#eee] p-3">
                     <label className="mb-2 block text-xs text-[#888]">
                       发言人
-                      <select id="speaking-as" name="speaker" aria-label="Speaking as" value={speaker} onChange={(event) => setSpeaker(event.target.value)} className="ml-2 bg-transparent text-sm text-[#222]">
-                        {meeting.participants.map((person) => (
+                      <select id="speaking-as" name="speaker" aria-label="发言人" value={speaker} onChange={(event) => setSpeaker(event.target.value)} className="ml-2 bg-transparent text-sm text-[#222]">
+                        {meeting.participants.filter((person) => person.kind !== "ai").map((person) => (
                           <option key={person.label} value={person.label}>
                             {person.name}
                           </option>
@@ -384,7 +385,7 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
                       </select>
                     </label>
                     <div className="flex gap-2">
-                      <input id="meeting-composer" name="utterance" value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="@architect @skeptic" className="h-9 min-w-0 flex-1 rounded border border-[#e5e5e5] px-3 text-sm text-[#222] outline-none" data-testid="meeting-composer" />
+                      <input id="meeting-composer" name="utterance" value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="说点什么，或 @架构师 @质疑者" className="h-9 min-w-0 flex-1 rounded border border-[#e5e5e5] px-3 text-sm text-[#222] outline-none" data-testid="meeting-composer" />
                       <button type="submit" className="rounded bg-[#006fff] px-3 text-sm text-white" disabled={busy || !draft.trim()}>
                         发送
                       </button>
@@ -399,7 +400,7 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
 
         <aside className="flex min-h-0 flex-col border-l border-white/10 bg-white text-[#1a1a1a]">
           <header className="flex items-center justify-between border-b border-[#eee] px-4 py-3">
-            <p className="text-sm">AI 协作</p>
+            <p className="text-sm">{ASSISTANT_NAME}</p>
             <div className="flex gap-2 text-xs">
               <button type="button" className={panel === "agent" ? "text-[#006fff]" : "text-[#888]"} onClick={() => setPanel("agent")}>
                 工作
@@ -429,7 +430,10 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
               <AgentCards
                 meeting={meeting}
                 onCancel={(jobId) => {
-                  void cancelMeetingJob(meeting.id, jobId).then(() => refresh());
+                  void cancelMeetingJob(meeting.id, jobId).then((result) => {
+                    if (result.error) setError("无权取消：会话已失效，请刷新页面后重试。");
+                    return refresh();
+                  });
                 }}
                 onDebate={() => void say("@architect @skeptic debate this branch", "You")}
               />
@@ -530,12 +534,17 @@ function Tile({
   listening?: boolean;
 }) {
   return (
-    <article className={`relative flex items-center justify-center overflow-hidden rounded-md bg-[#2b2b2b] ${large ? "min-h-0" : "min-h-36"} ${speaking ? "ring-2 ring-[#006fff]" : ""}`}>
+    <article className={`relative flex items-center justify-center overflow-hidden rounded-md bg-[#2b2b2b] ${large ? "min-h-0" : "min-h-36"} ${person.kind === "ai" ? "bg-[#1f2a3a]" : ""} ${speaking || person.aiStatus === "speaking" ? "ring-2 ring-[#006fff]" : ""}`}>
       {self && cameraOn ? (
         <video ref={videoRef} className="absolute inset-0 h-full w-full object-cover" muted playsInline />
       ) : (
         <div className={`flex items-center justify-center rounded-full bg-[#3a3a3a] text-white ${large ? "h-24 w-24 text-3xl" : "h-14 w-14 text-lg"}`}>{person.name.slice(0, 1)}</div>
       )}
+      {person.kind === "ai" ? (
+        <p className="absolute right-2 top-2 rounded bg-[#006fff] px-1.5 py-0.5 text-[10px]" data-testid="seat-badge">
+          AI · {AI_STATUS_LABEL[person.aiStatus ?? "offline"]}
+        </p>
+      ) : null}
       <p className="absolute bottom-2 left-2 flex items-center gap-1 rounded bg-black/45 px-1.5 py-0.5 text-xs">
         {person.micOn || (listening && self) ? <Mic className="h-3 w-3" /> : <MicOff className="h-3 w-3 text-white/70" />}
         {person.name}
@@ -554,20 +563,98 @@ function AgentCards({ meeting, onCancel, onDebate }: { meeting: MeetingState; on
         </p>
       ) : (
         <p className="text-sm leading-6 text-muted">
-          The agent works while you talk. A plan, a design, a check, or a reference shows up here without a separate prompt.
+          你们开会时，{ASSISTANT_NAME}会同步整理计划、设计、检查和参考资料，不需要单独下指令。
         </p>
       )}
       {meeting.pending ? (
         <p className="rounded-lg bg-warn-soft px-4 py-3 text-sm leading-6 text-warn" data-testid="confirm-wait">
-          Waiting for a yes. {meeting.pending.prompt}
+          等待口头确认：{meeting.pending.prompt}
         </p>
       ) : null}
       {meeting.chatter.length > 0 ? (
         <p className="text-xs leading-5 text-muted" data-testid="parked-chatter">
-          Parked, not in the plan: {meeting.chatter.at(-1)?.text}
+          已搁置，不进入计划：{meeting.chatter.at(-1)?.text}
         </p>
       ) : null}
+      <SeatPanel meeting={meeting} />
       {meeting.workstreams.length === 0 ? null : <DecisionTree meeting={meeting} onCancel={onCancel} onDebate={onDebate} />}
     </div>
   );
+}
+
+const AI_STATUS_LABEL: Record<"online" | "offline" | "speaking" | "demo", string> = {
+  online: "在线",
+  offline: "离线",
+  speaking: "发言中",
+  demo: "演示",
+};
+
+/** Q7: columns follow the head count (AI seats included) instead of a fixed two. */
+function gridCols(count: number) {
+  if (count <= 1) return "grid-cols-1";
+  if (count <= 4) return "grid-cols-2";
+  if (count <= 9) return "grid-cols-3";
+  return "grid-cols-4";
+}
+
+const DEBATE_STATUS: Record<string, string> = { running: "进行中", concluded: "已结束", interrupted: "已中断", failed: "失败" };
+const CONCLUSION_STATUS: Record<string, string> = { pending: "待人确认", confirmed: "已确认", rejected: "已否决", incomplete: "未完成" };
+
+/** F2: seat turns, debates and conclusion cards in the right panel. */
+function SeatPanel({ meeting }: { meeting: MeetingState }) {
+  const turns = meeting.seatTurns ?? [];
+  const debates = meeting.seatDebates ?? [];
+  const conclusions = meeting.conclusions ?? [];
+  const queue = meeting.seatQueue ?? [];
+  if (turns.length === 0 && debates.length === 0 && conclusions.length === 0) return null;
+  const label = (id: string) => (id === "architect" ? "AI 架构师" : "AI 质疑者");
+  return (
+    <section className="space-y-2" data-testid="seat-panel">
+      <p className="text-xs text-[#888]">AI 席位</p>
+      {debates.map((debate) => (
+        <div key={debate.id} className="rounded-lg border border-[#e9eaeb] p-3 text-xs leading-5" data-testid="seat-debate">
+          <p className="font-medium">
+            辩论：{debate.topic} · 第 {debate.round}/{debate.maxRounds} 轮 · {DEBATE_STATUS[debate.status] ?? debate.status}
+          </p>
+          {turns
+            .filter((turn) => turn.debateId === debate.id)
+            .map((turn) => (
+              <p key={turn.id} className="mt-1">
+                <span className="text-[#006fff]">{label(turn.seatId)}：</span>
+                {turn.text}
+                {turn.citations.length > 0 ? <span className="text-[#888]"> （引用：{turn.citations.map((c) => c.label).join("；")}）</span> : null}
+              </p>
+            ))}
+        </div>
+      ))}
+      {turns
+        .filter((turn) => turn.debateId === null)
+        .map((turn) => (
+          <p key={turn.id} className="rounded-lg bg-[#fafafa] p-3 text-xs leading-5" data-testid="seat-turn">
+            <span className="text-[#006fff]">{label(turn.seatId)}：</span>
+            {turn.text}
+          </p>
+        ))}
+      {queue.length > 0 ? <p className="text-xs text-[#888]">排队中：{queue.length} 个请求</p> : null}
+      {conclusions.map((card) => (
+        <article key={card.id} className="rounded-lg border border-[#006fff]/40 bg-[#f5f9ff] p-3 text-xs leading-5" data-testid="seat-conclusion">
+          <p className="font-medium">
+            结论卡 {card.id} · {CONCLUSION_STATUS[card.status] ?? card.status}
+          </p>
+          <p className="mt-1">分支：{card.topic}</p>
+          <p>推荐：{card.recommendation}</p>
+          {card.reasons.length > 0 ? <p>理由：{card.reasons.join("；")}</p> : null}
+          {card.risks.length > 0 ? <p>风险：{card.risks.join("；")}</p> : null}
+          {card.humanDecisions.length > 0 ? <p>需要人决定：{card.humanDecisions.join("；")}</p> : null}
+          {card.citations.length > 0 ? <p className="text-[#888]">引用：{card.citations.map((c) => c.label).join("；")}</p> : null}
+          {card.status === "pending" ? <p className="mt-1 text-[#b26b00]">说 &quot;yes {card.id}&quot; 写入决策记录。</p> : null}
+        </article>
+      ))}
+    </section>
+  );
+}
+
+/** B3: transcript lines from the assistant are stored as "Alexa"; show the agreed display name. */
+function displaySpeaker(speaker: string) {
+  return speaker === "Alexa" ? ASSISTANT_NAME : speaker;
 }

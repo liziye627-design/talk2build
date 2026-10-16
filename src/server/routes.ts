@@ -3,6 +3,7 @@ import { REPLIES } from "@/lib/demo-script";
 import { enqueue } from "@/lib/mutex";
 import { getStore } from "@/lib/meeting-store";
 import { prepareAgentWork } from "@/lib/agent/dispatch";
+import { restoreSeatState, keepSeatState, stopSeats } from "@/lib/seats/orchestrator";
 import { planTurn, summarizeMeeting } from "@/lib/planner";
 import { providerPublicConfig } from "@/lib/llm";
 import type { PlannedTool } from "@/lib/types";
@@ -15,7 +16,6 @@ import {
   issueCode,
   issuerFrom,
   protectedResourceMetadata,
-  rejectUnauthorized,
 } from "@/server/oauth";
 
 function json(body: unknown, status = 200) {
@@ -159,7 +159,11 @@ async function runTurn(request: Request) {
 
   try {
     if (planned.classification.kind === "interrupt") {
+      // S5: stop/不对 halts a running seat debate first; seat turns survive the rollback ("保留已生成内容").
+      const seatsWereRunning = stopSeats(meetingId);
+      const kept = seatsWereRunning ? keepSeatState(store.get(meetingId)) : null;
       const failure = await runTools(planned.classification.tools);
+      if (kept) restoreSeatState(store, meetingId, kept);
       const reply = failure ? failure : (planned.classification.reply ?? REPLIES.interrupt);
       if (!failure) {
         store.ingest(meetingId, { speaker: "Alexa", text: reply, kind: "interrupt" });
@@ -307,18 +311,18 @@ export async function routeHttp(request: Request): Promise<Response> {
   }
   const jobCancel = pathname.match(/^\/api\/meetings\/([^/]+)\/jobs\/([^/]+)\/cancel$/);
   if (jobCancel && request.method === "POST") {
-    const denied = rejectUnauthorized(request);
-    if (denied) return denied;
-    const { cancelAgentJob } = await import("@/lib/agent/dispatch");
+    const { cancelJobAuthorized } = await import("@/server/cancel-job");
+    const { unauthorizedResponse } = await import("@/server/meeting-session");
     const meetingId = decodeURIComponent(jobCancel[1] || "");
     const jobId = decodeURIComponent(jobCancel[2] || "");
-    const cancelled = cancelAgentJob(meetingId, jobId);
-    return json({ cancelled, meeting: getStore().get(meetingId) });
+    const result = cancelJobAuthorized({ headers: request.headers, meetingId, jobId });
+    if (result.error) return unauthorizedResponse();
+    return json({ cancelled: result.cancelled, meeting: getStore().get(meetingId) });
   }
   const meetingGet = pathname.match(/^\/api\/meetings\/([^/]+)$/);
   if (meetingGet && request.method === "GET") {
     const { handleMeetingGet } = await import("@/server/product");
-    return handleMeetingGet(decodeURIComponent(meetingGet[1] || ""));
+    return handleMeetingGet(decodeURIComponent(meetingGet[1] || ""), request);
   }
   const workspaceFile = pathname.match(/^\/api\/workspaces\/([^/]+)\/file$/);
   if (workspaceFile && request.method === "GET") {

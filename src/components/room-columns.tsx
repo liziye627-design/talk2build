@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { ASSISTANT_NAME } from "@/lib/branding";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { DiffFile, MeetingState } from "@/lib/types";
@@ -38,7 +39,7 @@ export function TranscriptColumn({ state }: { state: MeetingState }) {
         state.transcript.map((line) => (
           <article key={line.id} className="grid grid-cols-[auto_1fr] gap-3">
             <Badge variant={line.speaker === "A" ? "a" : line.speaker === "B" ? "b" : "alexa"}>
-              {line.speaker === "Alexa" ? "Alexa+" : line.speaker}
+              {line.speaker === "Alexa" ? ASSISTANT_NAME : line.speaker}
             </Badge>
             <div>
               <p className={line.speaker === "Alexa" ? "text-sm leading-6 text-brand" : "text-sm leading-6 text-ink"}>
@@ -61,7 +62,7 @@ export function PoolColumn({ state }: { state: MeetingState }) {
       <div data-testid="timeline">
         <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted">Timeline</p>
         {state.timeline.length === 0 ? (
-          <p className="mt-2 text-sm text-muted">Nothing on the timeline yet. Alexa+ is listening.</p>
+          <p className="mt-2 text-sm text-muted">时间线还是空的。{ASSISTANT_NAME}正在听。</p>
         ) : (
           <ol className="mt-3 space-y-3 border-l border-line pl-4">
             {state.timeline.map((event) => (
@@ -115,7 +116,7 @@ export function PoolColumn({ state }: { state: MeetingState }) {
         <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted">Chatter · 水聊</p>
         <p className="mt-1 text-xs text-muted">Parked. Not in the requirement pool.</p>
         {state.chatter.length === 0 ? (
-          <p className="mt-2 text-sm text-muted">Side talk stays in this column. Alexa+ stays quiet.</p>
+          <p className="mt-2 text-sm text-muted">闲聊留在这一栏，{ASSISTANT_NAME}不会插话。</p>
         ) : (
           <ul className="mt-2 space-y-2">
             {state.chatter.map((item) => (

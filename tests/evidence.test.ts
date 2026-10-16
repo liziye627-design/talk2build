@@ -3,6 +3,7 @@ import { classifyUtterance } from "@/lib/classifier";
 import { buildDecisionTree, decisionGoal } from "@/lib/agent/tree";
 import { claimNeedsEvidence, parseTargets } from "@/lib/evidence/claim";
 import { collectEvidence } from "@/lib/evidence/fetch";
+import { clearEvidenceCache } from "@/lib/evidence/cache";
 import { debateFromEvidence, reviewFromEvidence, selectFromEvidence } from "@/lib/evidence/select";
 import type { EvidenceReport } from "@/lib/evidence/types";
 import { getStore, resetStore } from "@/lib/meeting-store";
@@ -144,6 +145,7 @@ describe("decision tree", () => {
 describe("architect and skeptic", () => {
   it("debates only the fetched evidence", async () => {
     resetStore();
+    clearEvidenceCache();
     const state = getStore().ensure("debate");
     state.scenario = "general";
     state.title = "Choice";
@@ -158,14 +160,21 @@ describe("architect and skeptic", () => {
       globalThis.fetch = original;
     }
     const meeting = getStore().get("debate");
-    expect(meeting.participants.map((person) => person.label)).toEqual(expect.arrayContaining(["Architect", "Skeptic"]));
+    // S9/S1 (T2B-002): seats are "AI 架构师/AI 质疑者" marked kind "ai", not English "Architect/Skeptic".
+    expect(meeting.participants.map((person) => person.label)).toEqual(expect.arrayContaining(["AI 架构师", "AI 质疑者"]));
+    expect(meeting.participants.filter((person) => person.kind === "ai")).toHaveLength(2);
     const conclusion = meeting.workstreams.find((item) => item.kind === "conclusion");
+    // S9: the deterministic text is an evidence annotation waiting for a human, not a ready conclusion.
+    expect(conclusion?.status).toBe("waiting");
+    expect(conclusion?.debateGenerated).toBe("evidence");
     expect(conclusion?.debate?.architect).toMatch(/65000 stars/);
     expect(conclusion?.debate?.skeptic).toMatch(/Fastify GitHub latest release/);
     const report = meeting.workstreams.find((item) => item.kind === "evidence")?.evidence;
     if (!report) throw new Error("missing evidence");
     assertNoInventedNumbers(conclusion?.debate?.conclusion || "", report);
-    expect(meeting.transcript.some((line) => line.speaker === "Skeptic")).toBe(true);
+    // S9: no seat speaks the deterministic text (was: a "Skeptic" transcript line existed).
+    expect(meeting.transcript.some((line) => line.speaker === "Skeptic" || line.speaker === "AI 质疑者" || line.speaker === "Architect" || line.speaker === "AI 架构师")).toBe(false);
+    expect(meeting.decisions).toHaveLength(0);
     expect(meeting.workstreams.some((item) => item.kind === "design")).toBe(false);
   });
 

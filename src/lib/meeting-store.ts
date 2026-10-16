@@ -2,6 +2,7 @@ import { loadMeeting, saveMeeting, wipeDb } from "@/lib/db";
 import { emptyMeeting } from "@/lib/meeting-defaults";
 import type {
   ChatterItem,
+  ConclusionCard,
   Decision,
   DeployRecord,
   DiffFile,
@@ -12,6 +13,9 @@ import type {
   PullRequestDraft,
   Requirement,
   ScaffoldFile,
+  SeatDebate,
+  SeatRequest,
+  SeatTurn,
   SpeakerId,
   TimelineEvent,
   TodoItem,
@@ -257,6 +261,73 @@ export class MeetingStore {
   private writeConfirmations(state: MeetingState, items: PendingConfirm[]) {
     state.pending = items[0] ?? null;
     state.confirmQueue = items.slice(1);
+  }
+
+  addSeatTurn(id: string, input: Omit<SeatTurn, "id" | "at">): SeatTurn {
+    const state = this.ensure(id);
+    const turn: SeatTurn = { ...input, id: this.nextId(state, "turn"), at: now() };
+    state.seatTurns = [...(state.seatTurns ?? []), turn];
+    this.touch(state);
+    return turn;
+  }
+
+  updateSeatTurn(id: string, turnId: string, patch: Partial<Omit<SeatTurn, "id">>) {
+    const state = this.ensure(id);
+    const turn = (state.seatTurns ?? []).find((item) => item.id === turnId);
+    if (!turn) return null;
+    Object.assign(turn, patch);
+    this.touch(state);
+    return turn;
+  }
+
+  createDebate(id: string, input: { topic: string; maxRounds: number }): SeatDebate {
+    const state = this.ensure(id);
+    const debate: SeatDebate = {
+      id: this.nextId(state, "debate"),
+      topic: input.topic,
+      maxRounds: input.maxRounds,
+      round: 0,
+      status: "running",
+      turns: [],
+      conclusionId: null,
+      startedAt: now(),
+    };
+    state.seatDebates = [...(state.seatDebates ?? []), debate];
+    this.touch(state);
+    return debate;
+  }
+
+  updateDebate(id: string, debateId: string, patch: Partial<Omit<SeatDebate, "id">>) {
+    const state = this.ensure(id);
+    const debate = (state.seatDebates ?? []).find((item) => item.id === debateId);
+    if (!debate) return null;
+    Object.assign(debate, patch);
+    this.touch(state);
+    return debate;
+  }
+
+  addConclusion(id: string, input: Omit<ConclusionCard, "id">): ConclusionCard {
+    const state = this.ensure(id);
+    const card: ConclusionCard = { ...input, id: this.nextId(state, "concl") };
+    state.conclusions = [...(state.conclusions ?? []), card];
+    this.touch(state);
+    return card;
+  }
+
+  resolveConclusion(id: string, conclusionId: string, status: ConclusionCard["status"], decisionId?: string) {
+    const state = this.ensure(id);
+    const card = (state.conclusions ?? []).find((item) => item.id === conclusionId);
+    if (!card) return null;
+    card.status = status;
+    if (decisionId) card.decisionId = decisionId;
+    this.touch(state);
+    return card;
+  }
+
+  setSeatQueue(id: string, queue: SeatRequest[]) {
+    const state = this.ensure(id);
+    state.seatQueue = queue;
+    this.touch(state);
   }
 
   setDeploy(id: string, deploy: DeployRecord) {

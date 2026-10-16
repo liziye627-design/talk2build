@@ -1,7 +1,12 @@
 "use server";
 
-import { cancelAgentJob } from "@/lib/agent/dispatch";
+import { cookies, headers } from "next/headers";
+import { cancelJobAuthorized } from "@/server/cancel-job";
+import { sessionCookieName } from "@/server/meeting-session";
 
 export async function cancelMeetingJob(meetingId: string, jobId: string) {
-  return { cancelled: cancelAgentJob(meetingId, jobId) };
+  const incoming = new Headers(await headers());
+  const cookieValue = (await cookies()).get(sessionCookieName(meetingId))?.value ?? null;
+  // Server actions already enforce Origin; skip the duplicate check.
+  return cancelJobAuthorized({ headers: incoming, cookieValue, meetingId, jobId, checkOrigin: false });
 }

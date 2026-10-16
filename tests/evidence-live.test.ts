@@ -1,4 +1,4 @@
-import { expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { collectEvidence } from "@/lib/evidence/fetch";
 import type { EvidenceReport } from "@/lib/evidence/types";
 
@@ -19,6 +19,8 @@ function metric(report: EvidenceReport, label: string, name: string) {
   return report.options.find((option) => option.label === label)?.metrics.find((item) => item.name === name);
 }
 
+// O2: live network tests only run with LIVE=1.
+describe.skipIf(process.env.LIVE !== "1")("live evidence", () => {
 it("live: GitHub and npm numbers for Express and Fastify", async (ctx) => {
   if (!(await liveNetwork())) ctx.skip();
   const report = await collectEvidence("Which is more popular, Express or Fastify?");
@@ -61,3 +63,4 @@ it("live: PyPI recent downloads for requests", async (ctx) => {
   expect(week?.fetchedAt).toMatch(/^\d{4}-/);
   if (!week?.error) expect(week?.value ?? 0).toBeGreaterThan(0);
 }, 30_000);
+});

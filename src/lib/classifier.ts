@@ -55,26 +55,41 @@ function isYes(value: string) {
   return /^(yes|yeah|yep|sure|ok|okay|go ahead|do it)[.!]?$/i.test(value);
 }
 
+/**
+ * D12/D13: whole-sentence confirmation shared by confirm_conclusion and scaffold_code.
+ * Accepts "yes", "yes <id>" (exact id, nothing else) or a bare Chinese yes. "yes, but not <id>" never confirms.
+ */
+function isWholeSentenceYes(value: string, jobId: unknown) {
+  const match = /^(?:yes|yeah|yep|sure|ok|okay|go ahead|do it)[,\s]+(\S+?)[.!]?$/i.exec(value);
+  const yesWithId = typeof jobId === "string" && jobId.length > 0 && match?.[1] === jobId;
+  return isYes(value) || yesWithId || /^(确认|是的|好的?|可以)[!！.。\s]*$/.test(value);
+}
+
+/**
+ * B10: the speaker is deferring or excluding code work ("先别写代码", "don't write the code yet", "yes, but not job_x").
+ * English words use \b; Chinese phrases are plain substrings (\b never matches CJK).
+ */
+export function isDeferral(text: string): boolean {
+  return /\b(don't|don’t|do not|not yet|later|hold off)\b/i.test(text) || /先别|不要|暂时不|别写/.test(text) || /job_/.test(text);
+}
+
 function isAffirmative(text: string, action: string, pending: PendingConfirm | null) {
   const value = text.trim();
   const jobId = pending?.payload?.jobId;
-  const yesForJob =
-    typeof jobId === "string" &&
-    jobId.length > 0 &&
-    value.includes(jobId) &&
-    /^(yes|yeah|yep|sure|ok|okay|go ahead|do it)\b/i.test(value);
   if (action === "diff_fetch") {
     return /pull( the)? (diff|it)/i.test(value) || /^(yes|yeah|yep|sure|ok|okay)([, ]+pull it)?[.!]?$/i.test(value);
   }
   if (action === "pr_draft") {
-    return /open( the)? (pr|pull request)/i.test(value) || isYes(value);
+    // D14: whole sentence only ("don't open the PR" must not confirm).
+    return /^((yes|yeah|sure|ok|okay)[,\s]+)?open( the)? (pr|pull request)[.!]?$/i.test(value) || isWholeSentenceYes(value, jobId);
   }
   if (action === "write_doc") {
     return /write (it|that|the doc)/i.test(value) || isYes(value);
   }
-  if (action === "create_issues") return /create (the )?issues/i.test(value) || isYes(value);
-  if (action === "scaffold_code") return /\bscaffold\b/i.test(value) || isYes(value) || yesForJob;
+  if (action === "create_issues") return /^((yes|yeah|sure|ok|okay)[,\s]+)?create (the )?issues[.!]?$/i.test(value) || isWholeSentenceYes(value, jobId); // D14
+  if (action === "scaffold_code") return /^scaffold( it)?[.!]?$/i.test(value) || isWholeSentenceYes(value, jobId);
   if (action === "run_tests") return /run (the )?tests/i.test(value) || isYes(value);
+  if (action === "confirm_conclusion") return isWholeSentenceYes(value, jobId);
   return false;
 }
 
@@ -139,9 +154,11 @@ export function classifyUtterance(input: ClassifyInput): Classification {
       "Confirmation declined",
       [
         ...heard(speaker, text, "reject"),
-        { name: "confirm_ask", arguments: { action: "clear" } },
+        pending.action === "confirm_conclusion"
+          ? { name: "confirm_ask", arguments: { action: "clear", conclusionId: pending.payload?.conclusionId } }
+          : { name: "confirm_ask", arguments: { action: "clear" } },
       ],
-      "Okay. I won't do that. What do you want instead?",
+      "好的，不做了。你希望换成什么？",
     );
   }
 
@@ -151,7 +168,7 @@ export function classifyUtterance(input: ClassifyInput): Classification {
         "confirm",
         "Create issues from the action items",
         [...heard(speaker, text, "confirm"), { name: "create_issues", arguments: pending.payload ?? {} }],
-        "Issues created from the open action items.",
+        "已根据待办创建 issue。",
       );
     }
     if (pending.action === "scaffold_code") {
@@ -163,7 +180,22 @@ export function classifyUtterance(input: ClassifyInput): Classification {
           { name: "scaffold_code", arguments: pending.payload ?? {} },
           { name: "run_tests", arguments: {} },
         ],
-        "Scaffold is on disk and the tests have been run.",
+        "脚手架已写入，测试已运行。",
+      );
+    }
+    if (pending.action === "confirm_conclusion") {
+      const payload = pending.payload ?? {};
+      return plan(
+        "confirm",
+        "Record the confirmed seat conclusion",
+        [
+          ...heard(speaker, text, "confirm"),
+          {
+            name: "decision_record",
+            arguments: { speaker, text: payload.recommendation ?? pending.prompt, conclusionId: payload.conclusionId },
+          },
+        ],
+        "结论已写入决策记录。",
       );
     }
     if (pending.action === "run_tests") {
@@ -171,7 +203,7 @@ export function classifyUtterance(input: ClassifyInput): Classification {
         "confirm",
         "Run the workspace tests",
         [...heard(speaker, text, "confirm"), { name: "run_tests", arguments: pending.payload ?? {} }],
-        "Tests have been run.",
+        "测试已运行。",
       );
     }
     if (pending.action === "diff_fetch") {
@@ -197,7 +229,7 @@ export function classifyUtterance(input: ClassifyInput): Classification {
       );
     }
     if (pending.action !== "write_doc") {
-      return plan("confirm", "Confirmation did not match a known action", heard(speaker, text, "confirm"), "I still need a clearer yes.", 0.4);
+      return plan("confirm", "Confirmation did not match a known action", heard(speaker, text, "confirm"), "我还需要一个更明确的确认。", 0.4);
     }
     const payload = pending.payload ?? {};
     return plan(
@@ -213,7 +245,7 @@ export function classifyUtterance(input: ClassifyInput): Classification {
           },
         },
       ],
-      "Written into the doc.",
+      "已写入文档。",
     );
   }
 
@@ -234,7 +266,7 @@ export function classifyUtterance(input: ClassifyInput): Classification {
       ...items.map((item) => ({ name: "todo_add", arguments: { speaker, text: item } })),
     ];
     const reply =
-      items.length === 2 ? REPLIES.todos : items.length === 1 ? "One action item captured." : `${items.length} action items captured.`;
+      items.length === 2 ? REPLIES.todos : items.length === 1 ? "已记录 1 条待办。" : `已记录 ${items.length} 条待办。`;
     return plan("todo", items.join("; "), tools, reply);
   }
 
@@ -391,7 +423,7 @@ export function classifyUtterance(input: ClassifyInput): Classification {
       "requirement",
       item,
       [...heard(speaker, text, "requirement"), { name: "requirement_add", arguments: { speaker, text: item } }],
-      `Requirement captured. ${item}`,
+      `已记录需求：${item}`,
       0.74,
     );
   }
@@ -400,7 +432,9 @@ export function classifyUtterance(input: ClassifyInput): Classification {
     !claimNeedsEvidence(text) &&
     text.length < 80 &&
     !/\d/.test(text) &&
-    !/api|service|redis|deploy|alert|flag|pool|test|scaffold|wireframe|architect|goal|milestone|spec/i.test(text);
+    !/api|service|redis|deploy|alert|flag|pool|test|scaffold|wireframe|architect|goal|milestone|spec|plan|code|research|verify|feasib/i.test(text) &&
+    // B7: Chinese work keywords (no \b around CJK). Without these every Chinese work request was parked as chatter.
+    !/规划|计划|里程碑|目标|设计|架构|接口|验证|校验|可行|调研|查一下|资料|选型|代码|实现|脚手架|测试|需求|模块|方案/.test(text);
   if (looksSocial) {
     return plan(
       "chatter",
@@ -416,7 +450,7 @@ export function classifyUtterance(input: ClassifyInput): Classification {
     "requirement",
     item,
     [...heard(speaker, text, "requirement"), { name: "requirement_add", arguments: { speaker, text: item } }],
-    `Requirement captured. ${item}`,
+    `已记录需求：${item}`,
     0.6,
   );
 }
