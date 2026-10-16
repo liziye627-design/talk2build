@@ -108,8 +108,9 @@ export function executeWorkTool(name: string, args: Record<string, unknown>): To
   }
 
   if (name === "research_collect") {
-    const prior = relatedDecisions(text);
-    const prefs = listPreferences().filter((item) => /export|nightly|billing/i.test(`${item.key} ${item.value}`) || /export|nightly|billing/i.test(text));
+    const memory = memoryFor(text);
+    const prior = memory.decisions;
+    const prefs = memory.preferences.map((value) => ({ value }));
     const body = [
       "# Research",
       "",
@@ -157,6 +158,14 @@ export function executeWorkTool(name: string, args: Record<string, unknown>): To
   }
 
   return null;
+}
+
+export function memoryFor(text: string) {
+  const decisions = relatedDecisions(text);
+  const preferences = listPreferences()
+    .filter((item) => /export|nightly|billing/i.test(`${item.key} ${item.value}`) || /export|nightly|billing/i.test(text))
+    .map((item) => item.value);
+  return { decisions, preferences };
 }
 
 function relatedDecisions(text: string) {

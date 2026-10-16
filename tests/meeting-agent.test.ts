@@ -1,22 +1,26 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { recordedExtraction } from "@/lib/agent/fixtures";
+import { getJobRunner } from "@/lib/agent/runner";
 import { PLANNING_SCRIPT } from "@/lib/planning-script";
-import { facilitateUtterance } from "@/lib/facilitator";
 import { yesterdayIso } from "@/lib/time";
 import { getStore, resetStore } from "@/lib/meeting-store";
 import { startServer } from "@/server/standalone";
 import type { MeetingState } from "@/lib/types";
+import { readWorkspaceFile } from "@/lib/workspace";
 
-describe("facilitator", () => {
-  it("plans, designs, and asks before tests, and ignores lunch", () => {
-    const plan = facilitateUtterance(PLANNING_SCRIPT[0]!.text);
-    expect(plan?.tools.map((tool) => tool.name)).toContain("plan_update");
-    const design = facilitateUtterance(PLANNING_SCRIPT[1]!.text);
-    expect(design?.tools.map((tool) => tool.name)).toEqual(expect.arrayContaining(["design_draft", "design_draft"]));
-    const lunch = facilitateUtterance(PLANNING_SCRIPT[3]!.text);
-    expect(lunch).toBeNull();
-    const tests = facilitateUtterance(PLANNING_SCRIPT[5]!.text);
-    expect(tests?.tools.some((tool) => tool.name === "confirm_ask")).toBe(true);
-    expect(tests?.tools.some((tool) => tool.name === "run_tests")).toBe(false);
+describe("recorded meeting extraction", () => {
+  it("plans, designs, and asks before tests, and parks lunch", () => {
+    const plan = recordedExtraction("m", "Maya", PLANNING_SCRIPT[0]!.text);
+    expect(plan?.jobs.map((item) => item.kind)).toContain("plan");
+    expect(plan?.decisions[0]?.speaker).toBe("Maya");
+    const design = recordedExtraction("m", "Chris", PLANNING_SCRIPT[1]!.text);
+    expect(design?.jobs.map((item) => item.title)).toEqual(expect.arrayContaining(["Architecture", "API spec"]));
+    const lunch = recordedExtraction("m", "Chris", PLANNING_SCRIPT[3]!.text);
+    expect(lunch?.jobs).toEqual([]);
+    expect(lunch?.chatter).toMatch(/lunch|starving/i);
+    const tests = recordedExtraction("m", "Priya", PLANNING_SCRIPT[5]!.text);
+    expect(tests?.jobs.every((item) => item.needsConfirm)).toBe(true);
+    expect(tests?.jobs.some((item) => item.kind === "code")).toBe(true);
   });
 });
 
@@ -68,13 +72,22 @@ describe("a working session drives the agent panel", () => {
       latest = ((await response.json()) as { state: MeetingState }).state;
     }
     if (!latest) throw new Error("missing meeting");
+    expect(latest.pending?.action).toBe("scaffold_code");
+    expect(latest.scaffold).toBeNull();
+    await getJobRunner().whenIdle();
+    const settled = await fetch(`${server.url}/api/meetings/${meeting.id}`);
+    latest = ((await settled.json()) as { meeting: MeetingState }).meeting;
     expect(latest.workstreams.map((item) => item.kind)).toEqual(expect.arrayContaining(["plan", "design", "verify", "research"]));
+    expect(latest.workstreams.filter((item) => item.kind !== "code").every((item) => item.status === "ready")).toBe(true);
     expect(latest.workstreams.some((item) => /wireframe/i.test(item.title))).toBe(true);
     expect(latest.chatter.some((item) => /lunch/i.test(item.text))).toBe(true);
     expect(latest.requirements.some((item) => /lunch/i.test(item.text))).toBe(false);
     expect(latest.suggestions[0]?.text).toMatch(/nightly job/);
-    expect(latest.pending?.action).toBe("scaffold_code");
-    expect(latest.scaffold).toBeNull();
+    expect(latest.decisions.some((item) => item.speaker === "Maya")).toBe(true);
+    const research = readWorkspaceFile(latest.workspaceId, "docs/research.md");
+    expect(research).toMatch(/## Sources/);
+    expect(research).toMatch(/nightly job/);
+    expect(research).not.toMatch(/https?:\/\//);
 
     const yes = await fetch(`${server.url}/api/meetings/${meeting.id}/utterance`, {
       method: "POST",
@@ -84,5 +97,9 @@ describe("a working session drives the agent panel", () => {
     const after = ((await yes.json()) as { state: MeetingState }).state;
     expect(after.pending).toBeNull();
     expect(after.scaffold?.length).toBeGreaterThan(0);
+    expect(after.workstreams.find((item) => item.kind === "code")?.status).toBe("ready");
+    expect(after.pullRequest?.status).toBe("draft");
+    const patch = readWorkspaceFile(after.workspaceId, "docs/patch.diff");
+    expect(patch).toMatch(/diff --git/);
   }, 20_000);
 });

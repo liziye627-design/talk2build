@@ -317,6 +317,8 @@ export async function handleMeetingMic(request: Request, id: string) {
 
 export function handleMeetingEnd(id: string) {
   return enqueue(async () => {
+    const { cancelMeetingJobs } = await import("@/lib/agent/dispatch");
+    cancelMeetingJobs(id);
     const meeting = getStore().ensure(id);
     if (!meeting.threadId) {
       const thread = createThread({ title: meeting.title, workspaceId: meeting.workspaceId, meetingId: id, provider: "mock" });

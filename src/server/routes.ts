@@ -2,7 +2,7 @@ import { getAlexaClient } from "@/alexa/client";
 import { REPLIES } from "@/lib/demo-script";
 import { enqueue } from "@/lib/mutex";
 import { getStore } from "@/lib/meeting-store";
-import { facilitateUtterance } from "@/lib/facilitator";
+import { prepareAgentWork } from "@/lib/agent/dispatch";
 import { planTurn, summarizeMeeting } from "@/lib/planner";
 import { providerPublicConfig } from "@/lib/llm";
 import type { PlannedTool } from "@/lib/types";
@@ -132,20 +132,12 @@ async function runTurn(request: Request) {
     return json({ error: error instanceof Error ? error.message : "Planner failed." }, 502);
   }
 
-  if (
+  const runAgent =
     meeting.scenario === "general" &&
     planned.classification.kind !== "interrupt" &&
     planned.classification.kind !== "chatter" &&
     planned.classification.kind !== "confirm" &&
-    planned.classification.kind !== "reject"
-  ) {
-    const extra = facilitateUtterance(text);
-    if (extra) {
-      planned.classification.tools.push(...extra.tools);
-      planned.classification.reply = extra.reply;
-      planned.classification.silent = false;
-    }
-  }
+    planned.classification.kind !== "reject";
 
   const url = new URL(request.url);
   const host = request.headers.get("host") || url.host;
@@ -216,6 +208,18 @@ async function runTurn(request: Request) {
         const result = await client.callTool("report_progress", { meetingId });
         trace.push({ tool: "report_progress", ok: result.ok, summary: result.summary });
         if (result.ok) progress = result.summary;
+      }
+    }
+
+    if (runAgent) {
+      try {
+        await prepareAgentWork({ meetingId, speaker: speaker.trim(), text });
+      } catch (error) {
+        store.addTrace(meetingId, {
+          tool: "agent_extract",
+          ok: false,
+          summary: error instanceof Error ? error.message : "The agent could not read that line.",
+        });
       }
     }
 
@@ -298,6 +302,14 @@ export async function routeHttp(request: Request): Promise<Response> {
       const payload = { ...body, meetingId: id };
       return handleTurn(new Request(request.url, { method: "POST", headers: request.headers, body: JSON.stringify(payload) }));
     }
+  }
+  const jobCancel = pathname.match(/^\/api\/meetings\/([^/]+)\/jobs\/([^/]+)\/cancel$/);
+  if (jobCancel && request.method === "POST") {
+    const { cancelAgentJob } = await import("@/lib/agent/dispatch");
+    const meetingId = decodeURIComponent(jobCancel[1] || "");
+    const jobId = decodeURIComponent(jobCancel[2] || "");
+    const cancelled = cancelAgentJob(meetingId, jobId);
+    return json({ cancelled, meeting: getStore().get(meetingId) });
   }
   const meetingGet = pathname.match(/^\/api\/meetings\/([^/]+)$/);
   if (meetingGet && request.method === "GET") {

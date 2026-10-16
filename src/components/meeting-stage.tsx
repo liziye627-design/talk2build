@@ -107,7 +107,7 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
 
   useEffect(() => {
     void refresh();
-    const timer = window.setInterval(() => void refresh(), 2500);
+    const timer = window.setInterval(() => void refresh(), 800);
     return () => window.clearInterval(timer);
   }, [refresh]);
 
@@ -420,7 +420,18 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
             </div>
           ) : null}
           <div className="min-h-0 flex-1 overflow-y-auto p-4" data-testid="agent-panel">
-            {panel === "diff" && meeting.scenario === "incident" ? <DiffColumn state={meeting} animate={false} /> : panel === "pool" ? <PoolColumn state={meeting} /> : <AgentCards meeting={meeting} />}
+            {panel === "diff" && meeting.scenario === "incident" ? (
+              <DiffColumn state={meeting} animate={false} />
+            ) : panel === "pool" ? (
+              <PoolColumn state={meeting} />
+            ) : (
+              <AgentCards
+                meeting={meeting}
+                onCancel={(jobId) => {
+                  void fetch(`/api/meetings/${meeting.id}/jobs/${jobId}/cancel`, { method: "POST" }).then(() => refresh());
+                }}
+              />
+            )}
           </div>
         </aside>
       </div>
@@ -531,7 +542,7 @@ function Tile({
   );
 }
 
-function AgentCards({ meeting }: { meeting: MeetingState }) {
+function AgentCards({ meeting, onCancel }: { meeting: MeetingState; onCancel: (jobId: string) => void }) {
   const suggestion = meeting.suggestions[0];
   return (
     <div className="space-y-4 pr-1">
@@ -559,11 +570,21 @@ function AgentCards({ meeting }: { meeting: MeetingState }) {
           <article key={stream.id} className="rounded-xl border border-line bg-canvas p-4" data-testid="workstream">
             <div className="flex items-center justify-between gap-2">
               <p className="text-xs font-medium capitalize text-muted">{stream.kind}</p>
-              <Badge variant={stream.status === "waiting" ? "muted" : "ok"}>{stream.status}</Badge>
+              <Badge variant={stream.status === "ready" ? "ok" : stream.status === "cancelled" ? "danger" : stream.status === "working" ? "b" : "muted"}>{stream.status}</Badge>
             </div>
             <h3 className="mt-2 text-sm font-medium">{stream.title}</h3>
             <p className="mt-1 text-xs leading-5 text-body">{stream.summary}</p>
+            {stream.progress ? (
+              <p className="mt-1 text-xs text-[#006fff]" data-testid="job-progress">
+                {stream.progress}
+              </p>
+            ) : null}
             {stream.artifactPath ? <p className="mt-2 font-mono text-[10px] text-muted">{stream.artifactPath}</p> : null}
+            {stream.status === "working" && stream.jobId ? (
+              <button type="button" className="mt-2 text-xs text-[#888]" data-testid="cancel-job" onClick={() => onCancel(stream.jobId!)}>
+                取消
+              </button>
+            ) : null}
           </article>
         ))
       )}

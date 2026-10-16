@@ -145,15 +145,20 @@ export interface MeetingSummary {
   at: string;
 }
 
-export type WorkKind = "plan" | "design" | "verify" | "research";
+export type WorkKind = "plan" | "design" | "verify" | "research" | "code";
+
+export type WorkStatus = "working" | "ready" | "waiting" | "cancelled";
 
 export interface Workstream {
   id: string;
   kind: WorkKind;
   title: string;
-  status: "working" | "ready" | "waiting";
+  status: WorkStatus;
   summary: string;
   artifactPath?: string;
+  progress?: string;
+  jobId?: string;
+  speaker?: string;
   updatedAt: string;
 }
 

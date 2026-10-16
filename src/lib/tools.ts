@@ -11,7 +11,7 @@ import {
   pullRequestShell,
 } from "@/lib/incident";
 import { emptyMeeting, getStore } from "@/lib/meeting-store";
-import { renderMinutes } from "@/lib/minutes";
+import { renderCompletion, renderMinutes } from "@/lib/minutes";
 import { buildProgressReport } from "@/lib/progress";
 import { isOnYesterday } from "@/lib/time";
 import type { ConfirmAction, DiffFile, ScaffoldFile, TestResult, ToolResult } from "@/lib/types";
@@ -474,6 +474,33 @@ export function executeTool(name: string, args: Record<string, unknown> = {}): T
         (incidentMeeting(id) && !prompt ? FIX_FILES.map((file) => ({ ...file })) : moduleFromPrompt(prompt || "workspace task"));
       store.setScaffold(id, files);
       for (const file of files) writeTracked(id, args, file.path, file.contents, file.path, "code");
+      if (!incidentMeeting(id)) {
+        const patch = files
+          .map((file) => {
+            const added = file.contents.split("\n").map((line) => `+${line}`).join("\n");
+            return `diff --git a/${file.path} b/${file.path}\nnew file mode 100644\n--- /dev/null\n+++ b/${file.path}\n${added}\n`;
+          })
+          .join("\n");
+        writeTracked(id, args, "docs/patch.diff", patch, "PR-ready patch", "patch");
+        store.setPullRequest(id, {
+          title: `${store.get(id).title} draft`,
+          body: "Drafted from the workspace scaffold. Review before opening it upstream.",
+          branch: "talk2build/task",
+          base: "main",
+          files: diffFromScaffold(files),
+          tests: [],
+          status: "draft",
+        });
+        const waiting = store.get(id).workstreams.find((item) => item.kind === "code" && (item.status === "waiting" || item.status === "working"));
+        if (waiting) {
+          waiting.status = "ready";
+          waiting.summary = `Scaffolded ${files.length} files.`;
+          waiting.progress = "Saved";
+          waiting.artifactPath = "docs/patch.diff";
+          waiting.updatedAt = new Date().toISOString();
+          store.persist(id);
+        }
+      }
       store.clearPending(id);
       return finish(id, name, { ok: true, summary: `Scaffolded ${files.length} files.`, data: { files } });
     }
@@ -549,6 +576,7 @@ export function executeTool(name: string, args: Record<string, unknown> = {}): T
       store.writeDoc(id, title, minutes);
       const relativePath = "docs/minutes.md";
       writeTracked(id, args, relativePath, minutes, title, "minutes");
+      writeTracked(id, args, "docs/completion.md", renderCompletion(state), "Completion report", "completion");
       const current = store.get(id);
       current.summary = { title, minutes, at: new Date().toISOString() };
       store.persist(id);

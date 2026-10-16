@@ -1,6 +1,6 @@
 # Talk2Build
 
-Talk2Build is a meeting app. The home and meeting room follow the Tencent Meeting desktop client: a light lobby with a left rail and four blue actions (`#006fff`), and a dark room with a bottom control bar. The study is in `docs/design/tencent-meeting-reference.md`. Home is join, quick meeting, and schedule, plus the meetings you have already held. Inside a room the agent sits on the right and works while people talk: a plan, a design, a check, or a reference, each as a live card. Big steps still wait for a yes. Chatter stays parked. The task desk is at `/tasks`. The 2:17 AM orders postmortem is **Incident demo**.
+Talk2Build is a meeting app. The home and meeting room follow the Tencent Meeting desktop client: a light lobby with a left rail and four blue actions (`#006fff`), and a dark room with a bottom control bar. The study is in `docs/design/tencent-meeting-reference.md`. Home is join, quick meeting, and schedule, plus the meetings you have already held. Inside a room the agent sits on the right and works while people talk. Each utterance is read by the model, which pulls out intents, decisions, and action items with the speaker attached, then starts plan, design, verify, and research jobs in the background. The cards update while the room keeps going. Scaffolding, tests, and a PR-ready patch still wait for a yes. Chatter stays parked. Ending the meeting writes minutes and a completion report. The task desk is at `/tasks`. The 2:17 AM orders postmortem is **Incident demo**.
 
 This is an Alexa+ track project for the Amazon Developer Hackathon (`amazonappdev2026`), with the AWS Builder and Open Source mini challenges in mind.
 
@@ -70,14 +70,26 @@ Small writes happen immediately. Scaffolding, test runs, issue creation, and pul
 
 ## Models
 
-`LLM_PROVIDER` picks who plans a meeting turn. The task composer can pin Mock, Bedrock, or Nebius per thread. If Bedrock or the OpenAI-compatible endpoint fails, the turn falls back to the deterministic classifier and the response is marked degraded. Task tool routing stays deterministic so the desk works with no keys.
+Meeting turns still classify through `LLM_PROVIDER` (mock unless you set one). The **in-room agent** is separate. It picks a backend in this order:
 
-| Value | Where it runs |
+1. `TALK2BUILD_AGENT` if set (`bedrock`, `nebius`, `openai`, or `mock`)
+2. Otherwise `LLM_PROVIDER` when that is set
+3. Otherwise Bedrock when `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, or `AWS_BEARER_TOKEN_BEDROCK` is present
+4. Otherwise Nebius when `NEBIUS_API_KEY` is present, or any OpenAI-compatible server when `OPENAI_API_KEY` is present
+5. Otherwise the recorded-fixture model. That path does not call the network
+
+| Variable | Role |
 | --- | --- |
-| `mock` (default) | Local rules. No network, no key |
-| `bedrock` | Amazon Bedrock Converse (`@aws-sdk/client-bedrock-runtime`) |
-| `openai` | Any OpenAI-compatible `/chat/completions` |
-| `nebius` | Same adapter, defaulting to `https://api.tokenfactory.nebius.com/v1` and `nvidia/Nemotron-3_5-Lightning` |
+| `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | Bedrock credentials. Primary when they are present |
+| `BEDROCK_MODEL_ID` | Bedrock model. Default `amazon.nova-lite-v1:0` |
+| `NEBIUS_API_KEY` | Nebius Token Factory. Default base URL `https://api.tokenfactory.nebius.com/v1` |
+| `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL` | Any OpenAI-compatible `/chat/completions` server, including a local stub |
+| `TALK2BUILD_AGENT=mock` | Force the fixture model even if keys are set |
+| `TALK2BUILD_JOB_PACE_MS` | Delay between card updates. Tests force this to 0 |
+
+With no keys, plan, design, verify, and research still run as background jobs and write files under the meeting workspace. A code job only scaffolds, writes `docs/patch.diff`, and drafts a pull request after someone says yes. Research sources are earlier decisions and saved preferences. URLs that were not already in the context are dropped.
+
+The task composer can still pin Mock, Bedrock, or Nebius per thread. If Bedrock or the OpenAI-compatible endpoint fails, a meeting turn falls back to the deterministic classifier and the response is marked degraded.
 
 See `.env.example`. `TALK2BUILD_HOME` moves the SQLite file and the workspaces.
 
@@ -113,7 +125,8 @@ npm test
 - Provider adapters for Bedrock and the OpenAI-compatible API, with injected responses.
 - SQLite reload, a real `node --test` in a workspace, and path escape rejection.
 - Chat: yesterday's decision, then issues on disk after a yes.
-- A meeting that ends posts minutes onto its task.
+- A meeting that ends posts minutes onto its task, including the completion report.
+- Agent jobs: recorded fixtures, concurrent runs, cancel, the yes gate, and a local OpenAI-compatible stub.
 - The scripted postmortem through the Alexa+ client, plus rollback on `stop` and `不对`.
 
 ## Docs for the submission
