@@ -1,6 +1,6 @@
 # Talk2Build
 
-Talk2Build is a meeting app. The interface follows WorkBuddy’s light tokens: white surfaces, gray type, and one blue accent (`#155eef`). Home is start, join, and schedule, plus the meetings you have already held. Inside a room the agent sits on the right and works while people talk: a plan, a design, a check, or a reference, each as a live card. Big steps still wait for a yes. Chatter stays parked. The task desk is at `/tasks`. The 2:17 AM orders postmortem is **Incident demo**.
+Talk2Build is a meeting app. The home and meeting room follow the Tencent Meeting desktop client: a light lobby with a left rail and four blue actions (`#006fff`), and a dark room with a bottom control bar. The study is in `docs/design/tencent-meeting-reference.md`. Home is join, quick meeting, and schedule, plus the meetings you have already held. Inside a room the agent sits on the right and works while people talk: a plan, a design, a check, or a reference, each as a live card. Big steps still wait for a yes. Chatter stays parked. The task desk is at `/tasks`. The 2:17 AM orders postmortem is **Incident demo**.
 
 This is an Alexa+ track project for the Amazon Developer Hackathon (`amazonappdev2026`), with the AWS Builder and Open Source mini challenges in mind.
 

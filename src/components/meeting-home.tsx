@@ -2,8 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarPlus, LogIn, Video } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { CalendarPlus, LogIn, MonitorUp, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -18,6 +17,13 @@ interface MeetingCard {
   scenario: string;
 }
 
+const actions = [
+  { id: "join", label: "加入会议", icon: LogIn },
+  { id: "quick", label: "快速会议", icon: Video },
+  { id: "schedule", label: "预定会议", icon: CalendarPlus },
+  { id: "share", label: "共享屏幕", icon: MonitorUp },
+] as const;
+
 export function MeetingHome() {
   const router = useRouter();
   const [meetings, setMeetings] = useState<MeetingCard[]>([]);
@@ -25,6 +31,7 @@ export function MeetingHome() {
   const [joinOpen, setJoinOpen] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [code, setCode] = useState("TB-ROOM");
+  const [displayName, setDisplayName] = useState("You");
   const [title, setTitle] = useState("Billing export working session");
   const [when, setWhen] = useState("");
   const [busy, setBusy] = useState(false);
@@ -40,13 +47,13 @@ export function MeetingHome() {
     load().catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "Could not load."));
   }, []);
 
-  async function start() {
+  async function start(nextTitle = "Working session") {
     setBusy(true);
     setError("");
     const response = await fetch("/api/meetings", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ title: "Working session", host: "You", team: ["Maya", "Chris", "Priya"] }),
+      body: JSON.stringify({ title: nextTitle, host: displayName || "You", team: ["Maya", "Chris", "Priya"] }),
     });
     const body = (await response.json()) as { meeting?: { id: string }; error?: string };
     setBusy(false);
@@ -95,112 +102,150 @@ export function MeetingHome() {
   const personal = meetings.find((meeting) => meeting.id === "personal");
   const recent = meetings.filter((meeting) => meeting.id !== "personal");
 
+  function onAction(id: (typeof actions)[number]["id"]) {
+    if (id === "join") {
+      setError("");
+      setJoinOpen(true);
+      return;
+    }
+    if (id === "schedule") {
+      setError("");
+      setScheduleOpen(true);
+      return;
+    }
+    if (id === "share") {
+      void start("屏幕共享");
+      return;
+    }
+    void start();
+  }
+
   return (
-    <div className="min-h-dvh bg-canvas text-ink">
-      <header className="mx-auto flex max-w-5xl items-center justify-between px-8 py-8">
-        <div>
-          <p className="text-sm text-muted">Talk2Build</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight">Meetings</h1>
-        </div>
-        <a href="/tasks" className="text-sm text-brand">
-          Task desk
+    <div className="flex h-dvh bg-white text-[#1a1a1a]" style={{ fontFamily: '"PingFang SC","Microsoft YaHei","Noto Sans SC",Inter,sans-serif' }}>
+      <aside className="flex w-[76px] shrink-0 flex-col items-center border-r border-[#ececec] bg-[#f3f3f4] py-4">
+        <div className="mb-6 flex h-9 w-9 items-center justify-center rounded-lg bg-[#006fff] text-sm font-semibold text-white">会</div>
+        <RailItem active label="会议" />
+        <RailItem label="录制" />
+        <a href="/tasks" className="mt-1 flex w-full flex-col items-center gap-1 py-3 text-[11px] text-[#8a8a8a] hover:text-[#006fff]">
+          <span className="h-5 w-5 rounded-md border border-current" />
+          任务
         </a>
-      </header>
+      </aside>
 
-      <main className="mx-auto grid max-w-5xl gap-10 px-8 pb-20 lg:grid-cols-[16rem_minmax(0,1fr)]">
-        <section className="space-y-3">
-          <Button className="h-11 w-full" onClick={() => void start()} disabled={busy} data-testid="start-meeting">
-            <Video className="h-4 w-4" />
-            Start meeting
-          </Button>
-          <Button variant="secondary" className="h-11 w-full" onClick={() => { setError(""); setJoinOpen(true); }} data-testid="join-meeting">
-            <LogIn className="h-4 w-4" />
-            Join
-          </Button>
-          <Button variant="outline" className="h-11 w-full" onClick={() => setScheduleOpen(true)} data-testid="schedule-meeting">
-            <CalendarPlus className="h-4 w-4" />
-            Schedule
-          </Button>
-          <article className="rounded-xl border border-line bg-surface p-5 shadow-card">
-            <p className="text-xs text-muted">Your room</p>
-            <p className="mt-3 font-mono text-xl tracking-wide text-ink">{personal?.joinCode ?? "TB-ROOM"}</p>
-            <p className="mt-3 text-sm leading-6 text-body">Share the code. The agent already knows the decisions from yesterday when the room starts talking.</p>
-            {personal ? (
-              <Button variant="ghost" size="sm" className="mt-3 px-0 text-brand" onClick={() => router.push(`/meetings/${personal.id}`)}>
-                Open your room
-              </Button>
-            ) : null}
-          </article>
-          <Button
-            variant="ghost"
-            className="w-full text-muted"
-            onClick={() => {
-              void fetch("/api/meetings/incident", { method: "POST" }).then(() => router.push("/meetings/demo"));
-            }}
-          >
-            Incident demo
-          </Button>
-        </section>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="flex items-center justify-end px-8 py-4">
+          <div className="flex items-center gap-2 text-sm">
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#006fff] text-xs text-white">Y</span>
+            <span>You</span>
+          </div>
+        </header>
 
-        <section>
-          <h2 className="text-sm font-medium text-body">Recent</h2>
-          {error ? <p className="mt-3 text-sm text-danger">{error}</p> : null}
-          <ul className="mt-4 space-y-2">
-            {recent.length === 0 ? (
-              <li className="rounded-xl border border-dashed border-line px-5 py-12 text-sm text-muted">
-                No meetings yet. Start one and the room will keep the plan, the designs, and the checks.
-              </li>
-            ) : (
-              recent.map((meeting) => (
-                <li key={meeting.id}>
-                  <button
-                    type="button"
-                    onClick={() => router.push(`/meetings/${meeting.id}`)}
-                    className="flex w-full items-center justify-between gap-4 rounded-xl border border-line bg-surface px-5 py-4 text-left shadow-card hover:border-brand/30"
-                  >
-                    <span>
-                      <span className="block text-sm font-medium">{meeting.title}</span>
-                      <span className="mt-1 block text-xs text-muted">
-                        {meeting.joinCode}
-                        {meeting.scheduledFor ? ` · ${meeting.scheduledFor}` : ""}
-                      </span>
+        <main className="mx-auto w-full max-w-4xl flex-1 px-10 pb-10">
+          <div className="flex items-start justify-center gap-14 pt-6">
+            {actions.map((action) => {
+              const Icon = action.icon;
+              return (
+                <button
+                  key={action.id}
+                  type="button"
+                  disabled={busy}
+                  data-testid={action.id === "quick" ? "start-meeting" : action.id === "join" ? "join-meeting" : action.id === "schedule" ? "schedule-meeting" : undefined}
+                  onClick={() => onAction(action.id)}
+                  className="flex w-16 flex-col items-center gap-3 text-[13px] text-[#222] disabled:opacity-50"
+                >
+                  <span className="flex h-14 w-14 items-center justify-center rounded-full bg-[#006fff] text-white">
+                    <Icon className="h-6 w-6" strokeWidth={1.75} />
+                  </span>
+                  {action.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <p className="mt-8 text-center text-xs text-[#8d8d8d]">
+            个人会议号 {personal?.joinCode ?? "TB-ROOM"}
+            <button type="button" className="ml-3 text-[#006fff]" onClick={() => personal && router.push(`/meetings/${personal.id}`)}>
+              进入
+            </button>
+          </p>
+
+          <section className="mt-10">
+            <h2 className="text-sm text-[#666]">会议列表</h2>
+            {error && !joinOpen ? <p className="mt-3 text-sm text-[#e34d59]">{error}</p> : null}
+            <ul className="mt-3 divide-y divide-[#f0f0f0] border-t border-[#f0f0f0]">
+              {recent.length === 0 ? (
+                <li className="py-10 text-sm text-[#8d8d8d]">还没有预定会议。快速会议不会出现在这里。</li>
+              ) : (
+                recent.map((meeting) => (
+                  <li key={meeting.id} className="flex items-center gap-6 py-4">
+                    <span className="w-28 shrink-0 text-xs text-[#8d8d8d]">{meeting.scheduledFor ? meeting.scheduledFor.replace("T", " ").slice(0, 16) : meeting.status}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm">{meeting.title}</span>
+                      <span className="mt-1 block text-xs text-[#8d8d8d]">{meeting.joinCode}</span>
                     </span>
-                    <Badge variant={meeting.status === "live" ? "ok" : "muted"}>{meeting.status}</Badge>
-                  </button>
-                </li>
-              ))
-            )}
-          </ul>
-        </section>
-      </main>
+                    <button type="button" className="text-sm text-[#006fff]" onClick={() => router.push(`/meetings/${meeting.id}`)}>
+                      进入
+                    </button>
+                  </li>
+                ))
+              )}
+            </ul>
+            <button
+              type="button"
+              className="mt-4 text-xs text-[#8d8d8d] hover:text-[#006fff]"
+              onClick={() => {
+                void fetch("/api/meetings/incident", { method: "POST" }).then(() => router.push("/meetings/demo"));
+              }}
+            >
+              2:17 演练
+            </button>
+          </section>
+        </main>
+      </div>
 
       <Dialog open={joinOpen} onOpenChange={setJoinOpen}>
         <DialogContent>
-          <DialogTitle>Join a meeting</DialogTitle>
-          <DialogDescription>Use the code from the invite. Your room is TB-ROOM.</DialogDescription>
-          <form onSubmit={(event) => void join(event)} className="mt-4 flex gap-2">
-            <Input id="join-code" name="code" value={code} onChange={(event) => setCode(event.target.value)} placeholder="TB-ROOM" aria-label="Meeting code" />
-            <Button type="submit" disabled={busy || !code.trim()}>
-              Join
+          <DialogTitle>加入会议</DialogTitle>
+          <DialogDescription>输入会议号和你在会中显示的名称。</DialogDescription>
+          <form onSubmit={(event) => void join(event)} className="mt-4 space-y-3">
+            <Input id="join-code" name="code" value={code} onChange={(event) => setCode(event.target.value)} placeholder="会议号" aria-label="会议号" />
+            <Input id="join-name" name="display-name" value={displayName} onChange={(event) => setDisplayName(event.target.value)} aria-label="您的名称" />
+            <label className="flex items-center gap-2 text-sm text-[#444]">
+              <input type="checkbox" name="mic" defaultChecked /> 自动连接音频
+            </label>
+            <label className="flex items-center gap-2 text-sm text-[#444]">
+              <input type="checkbox" name="camera" /> 入会开启摄像头
+            </label>
+            <Button type="submit" disabled={busy || !code.trim()} className="w-full bg-[#006fff] hover:bg-[#0057d6]">
+              加入会议
             </Button>
+            {error ? <p className="text-sm text-[#e34d59]">{error}</p> : null}
           </form>
-          {error ? <p className="mt-3 text-sm text-danger">{error}</p> : null}
         </DialogContent>
       </Dialog>
 
       <Dialog open={scheduleOpen} onOpenChange={setScheduleOpen}>
         <DialogContent>
-          <DialogTitle>Schedule</DialogTitle>
-          <DialogDescription>The room stays on the list until someone starts it.</DialogDescription>
+          <DialogTitle>预定会议</DialogTitle>
+          <DialogDescription>填写主题和时间。预定后会出现在会议列表。</DialogDescription>
           <form onSubmit={(event) => void schedule(event)} className="mt-4 space-y-3">
-            <Input id="schedule-title" name="title" value={title} onChange={(event) => setTitle(event.target.value)} aria-label="Meeting title" />
-            <Input id="schedule-when" name="when" type="datetime-local" value={when} onChange={(event) => setWhen(event.target.value)} aria-label="When" />
-            <Button type="submit" disabled={busy}>
-              Add to the list
+            <Input id="schedule-title" name="title" value={title} onChange={(event) => setTitle(event.target.value)} aria-label="会议主题" />
+            <Input id="schedule-when" name="when" type="datetime-local" value={when} onChange={(event) => setWhen(event.target.value)} aria-label="开始时间" />
+            <Button type="submit" disabled={busy} className="w-full bg-[#006fff] hover:bg-[#0057d6]">
+              预定
             </Button>
           </form>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function RailItem({ label, active = false }: { label: string; active?: boolean }) {
+  return (
+    <div className={`flex w-full flex-col items-center gap-1 py-3 text-[11px] ${active ? "text-[#006fff]" : "text-[#8a8a8a]"}`}>
+      <span className={`h-5 w-5 rounded-md border ${active ? "border-[#006fff] bg-[#e8f2ff]" : "border-current"}`} />
+      {label}
     </div>
   );
 }
