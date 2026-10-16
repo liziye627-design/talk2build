@@ -175,6 +175,7 @@ export interface Suggestion {
 
 export interface PendingConfirm {
   id: string;
+  jobId?: string;
   prompt: string;
   action: ConfirmAction;
   payload?: Record<string, unknown>;

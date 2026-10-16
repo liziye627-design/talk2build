@@ -60,10 +60,21 @@ export function recordedExtraction(meetingId: string, speaker: string, text: str
       job(meetingId, speaker, "research", "Research", text),
     ]);
   }
-  if (/run the tests|scaffold/i.test(text)) {
+  if (/run the tests once the scaffold is in/i.test(text)) {
     return base(speaker, meetingId, [job(meetingId, speaker, "code", "Export checker", text, true)]);
   }
   return null;
+}
+
+function codeClauses(text: string) {
+  const pieces = text
+    .split(/\s+and\s+/i)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const hits = pieces.filter((part) => /scaffold|run (the )?tests/i.test(part));
+  if (hits.length > 1) return hits;
+  if (/scaffold|run (the )?tests/i.test(text)) return [text.replace(/\s+/g, " ").trim()];
+  return [];
 }
 
 export function keywordExtraction(meetingId: string, speaker: string, text: string): Extraction {
@@ -79,9 +90,9 @@ export function keywordExtraction(meetingId: string, speaker: string, text: stri
   if (/already decided|look up|what did we|reference|research|pull what/i.test(text)) {
     jobs.push(job(meetingId, speaker, "research", "Research", text));
   }
-  if (/run (the )?tests|scaffold/i.test(text)) {
-    const title = text.replace(/\s+/g, " ").trim().slice(0, 80) || "Code";
-    jobs.push(job(meetingId, speaker, "code", title, text, true));
+  for (const clause of codeClauses(text)) {
+    const title = clause.replace(/\s+/g, " ").trim().slice(0, 80) || "Code";
+    jobs.push(job(meetingId, speaker, "code", title, clause, true));
   }
   if (claimNeedsEvidence(text)) jobs.push(job(meetingId, speaker, "evidence", "Evidence", text));
   return base(speaker, meetingId, jobs);

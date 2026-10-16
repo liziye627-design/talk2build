@@ -6,15 +6,38 @@ import type { ChatMessage } from "@/lib/llm/types";
 
 export type AgentBackend = "bedrock" | "openai" | "fixture";
 
+function envValue(name: string) {
+  return process.env[name]?.trim() || "";
+}
+
+export function bedrockCredentialState(): "ready" | "partial" | "absent" {
+  const id = envValue("AWS_ACCESS_KEY_ID");
+  const secret = envValue("AWS_SECRET_ACCESS_KEY");
+  if (envValue("AWS_BEARER_TOKEN_BEDROCK") || (id && secret)) return "ready";
+  if (id || secret) return "partial";
+  return "absent";
+}
+
+export function skipBedrockMessage() {
+  const id = envValue("AWS_ACCESS_KEY_ID");
+  const secret = envValue("AWS_SECRET_ACCESS_KEY");
+  if (id && !secret) {
+    return "Skipping Bedrock: AWS_ACCESS_KEY_ID is set without AWS_SECRET_ACCESS_KEY. Set both, or set AWS_BEARER_TOKEN_BEDROCK.";
+  }
+  if (secret && !id) {
+    return "Skipping Bedrock: AWS_SECRET_ACCESS_KEY is set without AWS_ACCESS_KEY_ID. Set both, or set AWS_BEARER_TOKEN_BEDROCK.";
+  }
+  return "Skipping Bedrock: set both AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY, or set AWS_BEARER_TOKEN_BEDROCK.";
+}
+
 export function resolveAgentBackend(): AgentBackend {
   const forced = (process.env.TALK2BUILD_AGENT || process.env.LLM_PROVIDER || "").toLowerCase();
   if (forced === "mock" || forced === "fixture") return "fixture";
-  if (forced === "bedrock") return "bedrock";
   if (forced === "openai" || forced === "nebius") return "openai";
-  if (process.env.AWS_ACCESS_KEY_ID || process.env.AWS_SECRET_ACCESS_KEY || process.env.AWS_BEARER_TOKEN_BEDROCK) {
-    return "bedrock";
-  }
-  if (process.env.NEBIUS_API_KEY || process.env.OPENAI_API_KEY) return "openai";
+  const credentials = bedrockCredentialState();
+  if (credentials === "ready" && (forced === "bedrock" || !forced)) return "bedrock";
+  if (forced === "bedrock" || credentials === "partial") console.warn(skipBedrockMessage());
+  if (envValue("NEBIUS_API_KEY") || envValue("OPENAI_API_KEY")) return "openai";
   return "fixture";
 }
 

@@ -74,13 +74,13 @@ Meeting turns still classify through `LLM_PROVIDER` (mock unless you set one). T
 
 1. `TALK2BUILD_AGENT` if set (`bedrock`, `nebius`, `openai`, or `mock`)
 2. Otherwise `LLM_PROVIDER` when that is set
-3. Otherwise Bedrock when `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, or `AWS_BEARER_TOKEN_BEDROCK` is present
+3. Otherwise Bedrock when both `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` are set, or when `AWS_BEARER_TOKEN_BEDROCK` is set. One key alone is skipped, with a log line, and the agent falls through to Nebius, OpenAI, or the fixture model
 4. Otherwise Nebius when `NEBIUS_API_KEY` is present, or any OpenAI-compatible server when `OPENAI_API_KEY` is present
 5. Otherwise the recorded-fixture model. That path does not call the network
 
 | Variable | Role |
 | --- | --- |
-| `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | Bedrock credentials. Primary when they are present |
+| `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | Bedrock key pair. Both the access key id and the secret are required |
 | `BEDROCK_MODEL_ID` | Bedrock model. Default `amazon.nova-lite-v1:0` |
 | `NEBIUS_API_KEY` | Nebius Token Factory. Default base URL `https://api.tokenfactory.nebius.com/v1` |
 | `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL` | Any OpenAI-compatible `/chat/completions` server, including a local stub |

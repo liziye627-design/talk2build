@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { classifyUtterance } from "@/lib/classifier";
 import { parseExtraction } from "@/lib/agent/fixtures";
 import { prepareAgentWork, useDefaultJobRunner } from "@/lib/agent/dispatch";
-import { extractMeetingTurn } from "@/lib/agent/model";
+import { extractMeetingTurn, resolveAgentBackend } from "@/lib/agent/model";
 import { JobRunner, getJobRunner, resetJobRunner } from "@/lib/agent/runner";
 import type { AgentJob } from "@/lib/agent/types";
 import { getStore, resetStore } from "@/lib/meeting-store";
@@ -115,6 +115,83 @@ describe("confirmation gate", () => {
     expect(after.pending?.payload?.jobId).toBe(firstId);
     expect(after.pending?.prompt).toMatch(/billing reconciler/i);
     expect(after.confirmQueue ?? []).toHaveLength(0);
+  });
+
+  it("queues two code jobs from one turn and readies only the confirmed job", async () => {
+    const state = getStore().ensure("pair");
+    state.scenario = "general";
+    state.title = "Pair";
+    getStore().persist("pair");
+    await prepareAgentWork({
+      meetingId: "pair",
+      speaker: "Priya",
+      text: "Scaffold the billing reconciler and scaffold the invoice mailer.",
+    });
+    const meeting = getStore().get("pair");
+    const waiting = meeting.workstreams.filter((item) => item.kind === "code" && item.status === "waiting");
+    expect(waiting).toHaveLength(2);
+    const queued = [meeting.pending, ...(meeting.confirmQueue ?? [])].filter((item) => item != null);
+    const byJob = new Map(queued.map((item) => [item.jobId, item]));
+    expect(byJob.size).toBe(2);
+    const mailer = waiting.find((item) => /invoice mailer/i.test(item.title || item.summary));
+    const billing = waiting.find((item) => /billing reconciler/i.test(item.title || item.summary));
+    expect(mailer?.jobId).toBeTruthy();
+    expect(billing?.jobId).toBeTruthy();
+    expect(byJob.has(mailer?.jobId)).toBe(true);
+    expect(byJob.has(billing?.jobId)).toBe(true);
+
+    const yes = classifyUtterance({
+      text: `Yes ${mailer?.jobId}`,
+      speaker: "Priya",
+      pending: meeting.pending,
+      queue: meeting.confirmQueue,
+      scenario: "general",
+    });
+    const scaffold = yes.tools.find((tool) => tool.name === "scaffold_code");
+    expect(scaffold?.arguments.jobId).toBe(mailer?.jobId);
+    executeTool("scaffold_code", { meetingId: "pair", ...(scaffold?.arguments ?? {}) });
+
+    const after = getStore().get("pair");
+    expect(after.workstreams.find((item) => item.jobId === mailer?.jobId)?.status).toBe("ready");
+    expect(after.workstreams.find((item) => item.jobId === billing?.jobId)?.status).toBe("waiting");
+    expect(after.pending?.jobId).toBe(billing?.jobId);
+    expect(after.confirmQueue.find((item) => item.jobId === mailer?.jobId)).toBeUndefined();
+  });
+});
+
+describe("bedrock credentials", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
+  it("skips Bedrock when only one AWS key is set", () => {
+    vi.stubEnv("TALK2BUILD_AGENT", "");
+    vi.stubEnv("LLM_PROVIDER", "");
+    vi.stubEnv("AWS_ACCESS_KEY_ID", "AKIA_ONLY");
+    vi.stubEnv("AWS_SECRET_ACCESS_KEY", "");
+    vi.stubEnv("AWS_BEARER_TOKEN_BEDROCK", "");
+    vi.stubEnv("OPENAI_API_KEY", "");
+    vi.stubEnv("NEBIUS_API_KEY", "");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    expect(resolveAgentBackend()).toBe("fixture");
+    expect(warn.mock.calls.flat().join(" ")).toMatch(/Skipping Bedrock/);
+    expect(warn.mock.calls.flat().join(" ")).toMatch(/AWS_SECRET_ACCESS_KEY/);
+  });
+
+  it("selects Bedrock when both keys are set, or when a bearer token exists", () => {
+    vi.stubEnv("TALK2BUILD_AGENT", "");
+    vi.stubEnv("LLM_PROVIDER", "");
+    vi.stubEnv("AWS_ACCESS_KEY_ID", "AKIA_BOTH");
+    vi.stubEnv("AWS_SECRET_ACCESS_KEY", "secret");
+    vi.stubEnv("AWS_BEARER_TOKEN_BEDROCK", "");
+    vi.stubEnv("OPENAI_API_KEY", "should-not-win");
+    expect(resolveAgentBackend()).toBe("bedrock");
+
+    vi.stubEnv("AWS_ACCESS_KEY_ID", "");
+    vi.stubEnv("AWS_SECRET_ACCESS_KEY", "");
+    vi.stubEnv("AWS_BEARER_TOKEN_BEDROCK", "bearer-token");
+    expect(resolveAgentBackend()).toBe("bedrock");
   });
 });
 

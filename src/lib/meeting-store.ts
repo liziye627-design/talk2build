@@ -23,6 +23,11 @@ function now() {
   return new Date().toISOString();
 }
 
+function confirmationJobId(item: PendingConfirm) {
+  if (item.jobId) return item.jobId;
+  return typeof item.payload?.jobId === "string" ? item.payload.jobId : undefined;
+}
+
 export { emptyMeeting };
 
 interface StoreGlobal {
@@ -232,26 +237,26 @@ export class MeetingStore {
 
   askConfirm(id: string, pending: Omit<PendingConfirm, "id">): PendingConfirm {
     const state = this.ensure(id);
-    const stored: PendingConfirm = { ...pending, id: this.nextId(state, "ask") };
-    if (!state.confirmQueue) state.confirmQueue = [];
-    if (!state.pending) state.pending = stored;
-    else state.confirmQueue = [...state.confirmQueue, stored];
+    const jobId = pending.jobId || (typeof pending.payload?.jobId === "string" ? pending.payload.jobId : undefined);
+    const stored: PendingConfirm = { ...pending, jobId, id: this.nextId(state, "ask") };
+    const existing = [state.pending, ...(state.confirmQueue ?? [])].filter((item): item is PendingConfirm => Boolean(item));
+    const without = jobId ? existing.filter((item) => confirmationJobId(item) !== jobId) : existing;
+    this.writeConfirmations(state, [...without, stored]);
     this.touch(state);
     return stored;
   }
 
   clearPending(id: string, jobId?: string) {
     const state = this.ensure(id);
-    const queue = [...(state.confirmQueue ?? [])];
-    const matches = (item: PendingConfirm | null) => !jobId || item?.payload?.jobId === jobId;
-    if (matches(state.pending)) {
-      state.pending = queue.shift() ?? null;
-    } else {
-      const index = queue.findIndex((item) => item.payload?.jobId === jobId);
-      if (index >= 0) queue.splice(index, 1);
-    }
-    state.confirmQueue = queue;
+    const existing = [state.pending, ...(state.confirmQueue ?? [])].filter((item): item is PendingConfirm => Boolean(item));
+    const remaining = jobId ? existing.filter((item) => confirmationJobId(item) !== jobId) : existing.slice(1);
+    this.writeConfirmations(state, remaining);
     this.touch(state);
+  }
+
+  private writeConfirmations(state: MeetingState, items: PendingConfirm[]) {
+    state.pending = items[0] ?? null;
+    state.confirmQueue = items.slice(1);
   }
 
   setDeploy(id: string, deploy: DeployRecord) {
