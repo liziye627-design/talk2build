@@ -18,7 +18,7 @@ import {
   VideoOff,
 } from "lucide-react";
 import { DiffColumn, PoolColumn } from "@/components/room-columns";
-import { Badge } from "@/components/ui/badge";
+import { DecisionTree } from "@/components/decision-tree";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { DEMO_SCRIPT } from "@/lib/demo-script";
 import { PLANNING_SCRIPT } from "@/lib/planning-script";
@@ -383,7 +383,7 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
                       </select>
                     </label>
                     <div className="flex gap-2">
-                      <input id="meeting-composer" name="utterance" value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="输入消息" className="h-9 min-w-0 flex-1 rounded border border-[#e5e5e5] px-3 text-sm text-[#222] outline-none" data-testid="meeting-composer" />
+                      <input id="meeting-composer" name="utterance" value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="@architect @skeptic" className="h-9 min-w-0 flex-1 rounded border border-[#e5e5e5] px-3 text-sm text-[#222] outline-none" data-testid="meeting-composer" />
                       <button type="submit" className="rounded bg-[#006fff] px-3 text-sm text-white" disabled={busy || !draft.trim()}>
                         发送
                       </button>
@@ -430,6 +430,7 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
                 onCancel={(jobId) => {
                   void fetch(`/api/meetings/${meeting.id}/jobs/${jobId}/cancel`, { method: "POST" }).then(() => refresh());
                 }}
+                onDebate={() => void say("@architect @skeptic debate this branch", "You")}
               />
             )}
           </div>
@@ -542,7 +543,7 @@ function Tile({
   );
 }
 
-function AgentCards({ meeting, onCancel }: { meeting: MeetingState; onCancel: (jobId: string) => void }) {
+function AgentCards({ meeting, onCancel, onDebate }: { meeting: MeetingState; onCancel: (jobId: string) => void; onDebate: () => void }) {
   const suggestion = meeting.suggestions[0];
   return (
     <div className="space-y-4 pr-1">
@@ -565,29 +566,7 @@ function AgentCards({ meeting, onCancel }: { meeting: MeetingState; onCancel: (j
           Parked, not in the plan: {meeting.chatter.at(-1)?.text}
         </p>
       ) : null}
-      {meeting.workstreams.length === 0 ? null : (
-        meeting.workstreams.map((stream) => (
-          <article key={stream.id} className="rounded-xl border border-line bg-canvas p-4" data-testid="workstream">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-xs font-medium capitalize text-muted">{stream.kind}</p>
-              <Badge variant={stream.status === "ready" ? "ok" : stream.status === "cancelled" ? "danger" : stream.status === "working" ? "b" : "muted"}>{stream.status}</Badge>
-            </div>
-            <h3 className="mt-2 text-sm font-medium">{stream.title}</h3>
-            <p className="mt-1 text-xs leading-5 text-body">{stream.summary}</p>
-            {stream.progress ? (
-              <p className="mt-1 text-xs text-[#006fff]" data-testid="job-progress">
-                {stream.progress}
-              </p>
-            ) : null}
-            {stream.artifactPath ? <p className="mt-2 font-mono text-[10px] text-muted">{stream.artifactPath}</p> : null}
-            {stream.status === "working" && stream.jobId ? (
-              <button type="button" className="mt-2 text-xs text-[#888]" data-testid="cancel-job" onClick={() => onCancel(stream.jobId!)}>
-                取消
-              </button>
-            ) : null}
-          </article>
-        ))
-      )}
+      {meeting.workstreams.length === 0 ? null : <DecisionTree meeting={meeting} onCancel={onCancel} onDebate={onDebate} />}
     </div>
   );
 }

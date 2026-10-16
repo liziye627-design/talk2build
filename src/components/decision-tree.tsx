@@ -1,0 +1,220 @@
+import { buildDecisionTree, decisionGoal } from "@/lib/agent/tree";
+import { chartMetric } from "@/lib/evidence/select";
+import type { EvidenceOption, EvidenceReport, TechSelection } from "@/lib/evidence/types";
+import type { MeetingState, Workstream } from "@/lib/types";
+import { Badge } from "@/components/ui/badge";
+
+function statusVariant(status: Workstream["status"]) {
+  if (status === "ready") return "ok" as const;
+  if (status === "cancelled") return "danger" as const;
+  if (status === "working") return "b" as const;
+  return "muted" as const;
+}
+
+function EvidenceChart({ report }: { report: EvidenceReport }) {
+  const metricName = chartMetric(report);
+  if (!metricName) return <p className="text-xs text-[#888]">No comparable numbers to chart.</p>;
+  const bars = report.options
+    .map((option) => {
+      const metric = option.metrics.find((item) => item.name === metricName && item.value != null && !item.error);
+      return metric && metric.value != null ? { label: option.label, value: metric.value } : null;
+    })
+    .filter((item): item is { label: string; value: number } => Boolean(item));
+  if (bars.length === 0) return <p className="text-xs text-[#888]">No comparable numbers to chart.</p>;
+  const max = Math.max(...bars.map((item) => item.value), 1);
+  const width = 240;
+  const height = 18 + bars.length * 28;
+  return (
+    <svg data-testid="evidence-chart" viewBox={`0 0 ${width} ${height}`} className="mt-3 w-full" role="img" aria-label={metricName}>
+      <text x="0" y="12" fontSize="10" fill="#666">
+        {metricName}
+      </text>
+      {bars.map((bar, index) => {
+        const y = 20 + index * 28;
+        const barWidth = Math.max(2, Math.round((bar.value / max) * (width - 70)));
+        return (
+          <g key={bar.label}>
+            <text x="0" y={y + 12} fontSize="10" fill="#222">
+              {bar.label}
+            </text>
+            <rect x="64" y={y} width={barWidth} height="14" rx="3" fill="#006fff" />
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+function EvidenceBody({ report }: { report: EvidenceReport }) {
+  return (
+    <div className="mt-3">
+      {report.note ? <p className="text-xs leading-5 text-[#666]">{report.note}</p> : null}
+      <div className="mt-2 grid grid-cols-2 gap-2" data-testid="evidence-forks">
+        {report.options.map((option) => (
+          <OptionFork key={option.label} option={option} />
+        ))}
+      </div>
+      <div className="mt-3 overflow-x-auto">
+        <table data-testid="evidence-table" className="w-full border-collapse text-left text-[11px]">
+          <thead>
+            <tr className="text-[#888]">
+              <th className="py-1 pr-2 font-medium">Option</th>
+              <th className="py-1 pr-2 font-medium">Metric</th>
+              <th className="py-1 pr-2 font-medium">Value</th>
+              <th className="py-1 font-medium">Source</th>
+            </tr>
+          </thead>
+          <tbody>
+            {report.options.flatMap((option) =>
+              option.metrics.map((metric) => (
+                <tr key={`${option.label}-${metric.name}`} className="border-t border-[#eee] align-top">
+                  <td className="py-1 pr-2">{option.label}</td>
+                  <td className="py-1 pr-2">{metric.name}</td>
+                  <td className="py-1 pr-2">{metric.error ? `Failed: ${metric.error}` : metric.value != null ? `${metric.value} ${metric.unit}` : metric.text}</td>
+                  <td className="py-1">
+                    <a className="break-all text-[#006fff]" href={metric.sourceUrl} target="_blank" rel="noreferrer">
+                      {metric.sourceUrl.replace("https://", "")}
+                    </a>
+                    <span className="mt-0.5 block text-[#999]">{metric.fetchedAt}</span>
+                  </td>
+                </tr>
+              )),
+            )}
+          </tbody>
+        </table>
+      </div>
+      <EvidenceChart report={report} />
+      <ul className="mt-2 space-y-1 text-[11px] text-[#666]">
+        {report.options.map((option) => (
+          <li key={`${option.label}-docs`}>
+            {option.docsUrl ? (
+              <>
+                {option.label} docs{" "}
+                <a className="text-[#006fff]" href={option.docsUrl} target="_blank" rel="noreferrer">
+                  {option.docsUrl}
+                </a>
+                {option.docsSourceUrl ? <span> listed by {option.docsSourceUrl}</span> : null}
+              </>
+            ) : (
+              <span>
+                {option.label} docs: {option.docsError || "not listed"}
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function OptionFork({ option }: { option: EvidenceOption }) {
+  const stars = option.metrics.find((metric) => metric.name === "GitHub stars");
+  return (
+    <div className="rounded-md border border-[#e5e5e5] bg-white p-2">
+      <p className="text-xs font-medium">{option.label}</p>
+      <p className="mt-1 text-[11px] text-[#666]">{stars?.error ? stars.error : stars?.value != null ? `${stars.value} stars` : "No star count"}</p>
+    </div>
+  );
+}
+
+function SelectionBody({ selection }: { selection: TechSelection }) {
+  return (
+    <div className="mt-2 text-xs leading-5" data-testid="tech-selection">
+      <p>Confidence {selection.confidence}</p>
+      <ul className="mt-1 list-disc pl-4">
+        {selection.pros.map((item) => (
+          <li key={item}>{item}</li>
+        ))}
+      </ul>
+      {selection.cons.length > 0 ? (
+        <ul className="mt-1 list-disc pl-4 text-[#666]">
+          {selection.cons.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
+function JobCard({ stream, onCancel }: { stream: Workstream; onCancel: (jobId: string) => void }) {
+  return (
+    <article className="rounded-xl border border-[#e9eaeb] bg-[#fafafa] p-3" data-testid="workstream">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-medium capitalize text-[#666]">{stream.kind}</p>
+        <Badge variant={statusVariant(stream.status)}>{stream.status}</Badge>
+      </div>
+      <h3 className="mt-2 text-sm font-medium">{stream.title}</h3>
+      <p className="mt-1 text-xs leading-5 text-[#333]" data-testid={stream.kind === "review" ? "requirement-review" : undefined}>
+        {stream.summary}
+      </p>
+      {stream.progress ? (
+        <p className="mt-1 text-xs text-[#006fff]" data-testid="job-progress">
+          {stream.progress}
+        </p>
+      ) : null}
+      {stream.artifactPath ? <p className="mt-2 font-mono text-[10px] text-[#888]">{stream.artifactPath}</p> : null}
+      {stream.evidence ? <EvidenceBody report={stream.evidence} /> : null}
+      {stream.selection ? <SelectionBody selection={stream.selection} /> : null}
+      {stream.debate ? (
+        <div className="mt-2 space-y-1 text-xs leading-5" data-testid="conclusion-card">
+          <p>
+            <span className="text-[#006fff]">Architect.</span> {stream.debate.architect}
+          </p>
+          <p>
+            <span className="text-[#006fff]">Skeptic.</span> {stream.debate.skeptic}
+          </p>
+        </div>
+      ) : null}
+      {stream.status === "working" && stream.jobId ? (
+        <button type="button" className="mt-2 text-xs text-[#888]" data-testid="cancel-job" onClick={() => onCancel(stream.jobId!)}>
+          取消
+        </button>
+      ) : null}
+    </article>
+  );
+}
+
+export function DecisionTree({
+  meeting,
+  onCancel,
+  onDebate,
+}: {
+  meeting: MeetingState;
+  onCancel: (jobId: string) => void;
+  onDebate: () => void;
+}) {
+  const branches = buildDecisionTree(meeting);
+  const evidenceReady = meeting.workstreams.some((item) => item.kind === "evidence" && item.status === "ready");
+  return (
+    <div data-testid="decision-tree">
+      <p className="text-xs text-[#888]">Goal</p>
+      <p className="mt-1 text-sm font-medium leading-6" data-testid="tree-goal">
+        {decisionGoal(meeting)}
+      </p>
+      <div className="mt-3 space-y-3 border-l-2 border-[#006fff] pl-3">
+        {branches.map((branch) => (
+          <section key={branch.id}>
+            <p className="text-[11px] uppercase tracking-wide text-[#006fff]">{branch.label}</p>
+            <div className={branch.layout === "fork" ? "mt-2 grid grid-cols-1 gap-2" : "mt-2 space-y-2"}>
+              {branch.layout === "fork" && branch.id !== "evidence" ? (
+                <div className="grid grid-cols-2 gap-2">
+                  {branch.items.map((item) => (
+                    <JobCard key={item.id} stream={item} onCancel={onCancel} />
+                  ))}
+                </div>
+              ) : (
+                branch.items.map((item) => <JobCard key={item.id} stream={item} onCancel={onCancel} />)
+              )}
+            </div>
+          </section>
+        ))}
+      </div>
+      {evidenceReady ? (
+        <button type="button" className="mt-3 text-xs text-[#006fff]" data-testid="debate-branch" onClick={onDebate}>
+          @architect @skeptic 辩论这一支
+        </button>
+      ) : null}
+    </div>
+  );
+}

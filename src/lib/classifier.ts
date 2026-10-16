@@ -1,4 +1,5 @@
 import { REPLIES } from "@/lib/demo-script";
+import { claimNeedsEvidence } from "@/lib/evidence/claim";
 import { FIX_REQUIREMENTS, REDIS_METRICS, ROOT_CAUSE } from "@/lib/incident";
 import type { Classification, PendingConfirm, PlannedTool, SpeakerId } from "@/lib/types";
 
@@ -380,6 +381,7 @@ export function classifyUtterance(input: ClassifyInput): Classification {
   }
 
   const looksSocial =
+    !claimNeedsEvidence(text) &&
     text.length < 80 &&
     !/\d/.test(text) &&
     !/api|service|redis|deploy|alert|flag|pool|test|scaffold|wireframe|architect|goal|milestone|spec/i.test(text);

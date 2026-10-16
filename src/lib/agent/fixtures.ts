@@ -1,6 +1,7 @@
 import type { AgentJob, Extraction } from "@/lib/agent/types";
+import { claimNeedsEvidence } from "@/lib/evidence/claim";
 
-const JOB_KINDS = new Set(["plan", "design", "verify", "research", "code"]);
+const JOB_KINDS = new Set(["plan", "design", "verify", "research", "code", "evidence", "selection", "review", "conclusion"]);
 
 function job(meetingId: string, speaker: string, kind: AgentJob["kind"], title: string, brief: string, needsConfirm = false): AgentJob {
   return {
@@ -66,14 +67,16 @@ export function keywordExtraction(meetingId: string, speaker: string, text: stri
   if (recorded) return recorded;
   const jobs: AgentJob[] = [];
   if (/\b(goal|milestone|plan)\b/i.test(text)) jobs.push(job(meetingId, speaker, "plan", "Plan", text));
-  if (/wireframe|mockup|settings screen/i.test(text)) jobs.push(job(meetingId, speaker, "design", "Settings wireframe", text));
-  else if (/architect|diagram|worker/i.test(text)) jobs.push(job(meetingId, speaker, "design", "Architecture", text));
+  const designText = text.replace(/@architect\b/gi, "");
+  if (/wireframe|mockup|settings screen/i.test(designText)) jobs.push(job(meetingId, speaker, "design", "Settings wireframe", text));
+  else if (/architect|diagram|worker/i.test(designText)) jobs.push(job(meetingId, speaker, "design", "Architecture", text));
   if (/\bAPI\b|endpoint|POST \//i.test(text)) jobs.push(job(meetingId, speaker, "design", "API spec", text));
   if (/feasib|validate|check that|verify/i.test(text)) jobs.push(job(meetingId, speaker, "verify", "Feasibility", text));
   if (/already decided|look up|what did we|reference|research|pull what/i.test(text)) {
     jobs.push(job(meetingId, speaker, "research", "Research", text));
   }
   if (/run (the )?tests|scaffold/i.test(text)) jobs.push(job(meetingId, speaker, "code", "Export checker", text, true));
+  if (claimNeedsEvidence(text)) jobs.push(job(meetingId, speaker, "evidence", "Evidence", text));
   return base(speaker, meetingId, jobs);
 }
 

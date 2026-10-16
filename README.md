@@ -87,7 +87,13 @@ Meeting turns still classify through `LLM_PROVIDER` (mock unless you set one). T
 | `TALK2BUILD_AGENT=mock` | Force the fixture model even if keys are set |
 | `TALK2BUILD_JOB_PACE_MS` | Delay between card updates. Tests force this to 0 |
 
-With no keys, plan, design, verify, and research still run as background jobs and write files under the meeting workspace. A code job only scaffolds, writes `docs/patch.diff`, and drafts a pull request after someone says yes. Research sources are earlier decisions and saved preferences. URLs that were not already in the context are dropped.
+With no keys, plan, design, verify, and research still run as background jobs and write files under the meeting workspace.
+
+If the room compares technologies ("which is more popular, Express or Fastify?"), an Evidence card fetches GitHub stars, open issues, latest release, and last push, plus npm weekly downloads or PyPI recent downloads, and the documentation URL listed by the registry. Every number keeps its source URL and fetch time. A failed call is shown as a failure. The model does not fill in missing numbers. Tech selection and requirement review are written only from those rows. The same jobs are drawn as a decision tree: the goal at the root, topics as branches, and alternatives side by side. After the evidence is in, Architect and Skeptic join the grid and can be called with `@architect` and `@skeptic`.
+
+`TALK2BUILD_LIVE=0` skips the tests that call the public APIs. They run by default when the network is up.
+
+A code job only scaffolds, writes `docs/patch.diff`, and drafts a pull request after someone says yes. Research sources are earlier decisions and saved preferences. URLs that were not already in the context are dropped.
 
 The task composer can still pin Mock, Bedrock, or Nebius per thread. If Bedrock or the OpenAI-compatible endpoint fails, a meeting turn falls back to the deterministic classifier and the response is marked degraded.
 

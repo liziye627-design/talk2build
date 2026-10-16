@@ -2,6 +2,9 @@ import { draftArtifact, writeArtifact } from "@/lib/agent/artifacts";
 import { agentModelLabel, extractMeetingTurn, resolveAgentBackend } from "@/lib/agent/model";
 import { bindJobExecutor, getJobRunner } from "@/lib/agent/runner";
 import type { AgentJob } from "@/lib/agent/types";
+import { claimNeedsEvidence } from "@/lib/evidence/claim";
+import { collectEvidence } from "@/lib/evidence/fetch";
+import { debateFromEvidence, evidenceMarkdown, reviewFromEvidence, selectFromEvidence } from "@/lib/evidence/select";
 import { memoryFor } from "@/lib/work-tools";
 import { getStore } from "@/lib/meeting-store";
 import { executeTool } from "@/lib/tools";
@@ -52,6 +55,9 @@ function publish(meetingId: string, draft: Omit<Workstream, "id" | "updatedAt"> 
     progress: draft.progress,
     jobId: draft.jobId ?? current?.jobId,
     speaker: draft.speaker ?? current?.speaker,
+    evidence: draft.evidence ?? current?.evidence,
+    selection: draft.selection ?? current?.selection,
+    debate: draft.debate ?? current?.debate,
     updatedAt: new Date().toISOString(),
   };
   state.seq += 1;
@@ -63,6 +69,10 @@ function publish(meetingId: string, draft: Omit<Workstream, "id" | "updatedAt"> 
 async function runMeetingJob(job: AgentJob, signal: AbortSignal) {
   const steps = ["Reading what was just said", "Drafting the artifact", "Saving it to the meeting"];
   try {
+    if (job.kind === "evidence") {
+      await runEvidenceJob(job, signal);
+      return;
+    }
     for (const step of steps) {
       if (signal.aborted) throw abortError();
       publish(job.meetingId, {
@@ -115,6 +125,95 @@ async function runMeetingJob(job: AgentJob, signal: AbortSignal) {
   }
 }
 
+function seatEngineers(meetingId: string) {
+  const store = getStore();
+  const state = store.ensure(meetingId);
+  for (const person of [
+    { name: "Architect", label: "Architect" },
+    { name: "Skeptic", label: "Skeptic" },
+  ]) {
+    if (state.participants.some((item) => item.label === person.label)) continue;
+    state.participants.push({ id: `p_${person.label.toLowerCase()}`, name: person.name, label: person.label, micOn: false, present: true });
+  }
+  store.persist(meetingId);
+}
+
+async function runEvidenceJob(job: AgentJob, signal: AbortSignal) {
+  if (signal.aborted) throw abortError();
+  seatEngineers(job.meetingId);
+  publish(job.meetingId, {
+    kind: "evidence",
+    title: "Evidence",
+    status: "working",
+    summary: `${job.speaker}: fetching GitHub, npm, and PyPI.`,
+    progress: "Fetching public sources",
+    jobId: job.id,
+    speaker: job.speaker,
+  });
+  const report = await collectEvidence(job.brief, fetch, signal);
+  if (signal.aborted) throw abortError();
+  const selection = selectFromEvidence(report);
+  const review = reviewFromEvidence(report, selection);
+  const artifactPath = writeArtifact(job.meetingId, {
+    path: "docs/evidence.md",
+    summary: selection.recommendation,
+    body: evidenceMarkdown(report, selection),
+  });
+  publish(job.meetingId, {
+    kind: "evidence",
+    title: "Evidence",
+    status: "ready",
+    summary: report.note || `${report.options.length} options fetched.`,
+    artifactPath,
+    progress: "Saved",
+    jobId: job.id,
+    speaker: job.speaker,
+    evidence: report,
+  });
+  publish(job.meetingId, {
+    kind: "selection",
+    title: "Tech selection",
+    status: "ready",
+    summary: selection.recommendation,
+    progress: selection.confidence,
+    speaker: job.speaker,
+    selection,
+  });
+  publish(job.meetingId, {
+    kind: "review",
+    title: "Requirement review",
+    status: "ready",
+    summary: review,
+    progress: "Saved",
+    speaker: job.speaker,
+  });
+  getStore().addTrace(job.meetingId, { tool: "evidence", ok: true, summary: selection.recommendation });
+}
+
+function mentionDebate(text: string) {
+  return /@(architect|skeptic)\b/i.test(text);
+}
+
+function publishDebate(meetingId: string, speaker: string) {
+  seatEngineers(meetingId);
+  const state = getStore().get(meetingId);
+  const evidenceCard = state.workstreams.find((item) => item.kind === "evidence" && item.evidence);
+  const selectionCard = state.workstreams.find((item) => item.kind === "selection" && item.selection);
+  const debate = debateFromEvidence(evidenceCard?.evidence, selectionCard?.selection);
+  const store = getStore();
+  store.ingest(meetingId, { speaker: "Architect", text: debate.architect, kind: "reply" });
+  store.ingest(meetingId, { speaker: "Skeptic", text: debate.skeptic, kind: "reply" });
+  publish(meetingId, {
+    kind: "conclusion",
+    title: "Conclusion",
+    status: "ready",
+    summary: debate.conclusion,
+    progress: "Saved",
+    speaker,
+    debate,
+  });
+}
+
 bindJobExecutor(runMeetingJob);
 
 export function useDefaultJobRunner() {
@@ -131,6 +230,7 @@ export async function prepareAgentWork(input: { meetingId: string; speaker: stri
   const store = getStore();
   const state = store.ensure(input.meetingId);
   if (state.scenario !== "general") return;
+  if (mentionDebate(input.text) && !claimNeedsEvidence(input.text)) publishDebate(input.meetingId, input.speaker);
   const extraction = await extractMeetingTurn({
     meetingId: input.meetingId,
     speaker: input.speaker,

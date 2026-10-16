@@ -1,3 +1,5 @@
+import type { Debate, EvidenceReport, TechSelection } from "@/lib/evidence/types";
+
 export const PROTOCOL_VERSION = "2025-11-25";
 
 export type SpeakerId = string;
@@ -145,7 +147,7 @@ export interface MeetingSummary {
   at: string;
 }
 
-export type WorkKind = "plan" | "design" | "verify" | "research" | "code";
+export type WorkKind = "plan" | "design" | "verify" | "research" | "code" | "evidence" | "selection" | "review" | "conclusion";
 
 export type WorkStatus = "working" | "ready" | "waiting" | "cancelled";
 
@@ -159,6 +161,9 @@ export interface Workstream {
   progress?: string;
   jobId?: string;
   speaker?: string;
+  evidence?: EvidenceReport;
+  selection?: TechSelection;
+  debate?: Debate;
   updatedAt: string;
 }
 
