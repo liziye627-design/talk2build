@@ -1,5 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { nodeStartupError } from "../../scripts/check-node.mjs";
 import { routeHttp } from "@/server/routes";
+import { assertProductionToken } from "@/server/oauth";
 
 async function readBody(req: IncomingMessage) {
   const chunks: Buffer[] = [];
@@ -33,6 +35,9 @@ async function writeResponse(res: ServerResponse, response: Response) {
 }
 
 export function startServer(port = 0, host = "127.0.0.1") {
+  const nodeMessage = nodeStartupError();
+  if (nodeMessage) throw new Error(nodeMessage);
+  assertProductionToken();
   const server = createServer(async (req, res) => {
     try {
       const address = server.address();

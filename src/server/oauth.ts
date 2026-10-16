@@ -28,16 +28,49 @@ export function resetOAuth() {
   tokens().clear();
 }
 
+const PUBLIC_DEMO_TOKEN = "talk2build-demo";
+
 export function demoToken() {
-  return process.env.MCP_DEMO_TOKEN || "talk2build-demo";
+  const configured = process.env.MCP_DEMO_TOKEN?.trim() || "";
+  if (process.env.NODE_ENV === "production") {
+    if (configured.length < 16 || configured === PUBLIC_DEMO_TOKEN) {
+      throw new Error(
+        "Production requires MCP_DEMO_TOKEN set to a random secret of at least 16 characters. The public demo token talk2build-demo is not accepted.",
+      );
+    }
+    return configured;
+  }
+  return configured || PUBLIC_DEMO_TOKEN;
+}
+
+export function assertProductionToken() {
+  if (process.env.NODE_ENV !== "production") return;
+  demoToken();
 }
 
 export function authRequired() {
-  return process.env.MCP_REQUIRE_AUTH === "true";
+  return process.env.NODE_ENV === "production" || process.env.MCP_REQUIRE_AUTH === "true";
 }
 
 export function isAcceptedToken(token: string) {
-  return token === demoToken() || tokens().has(token);
+  if (!token || (process.env.NODE_ENV === "production" && token === PUBLIC_DEMO_TOKEN)) return false;
+  try {
+    if (token === demoToken()) return true;
+  } catch {
+    return tokens().has(token);
+  }
+  return tokens().has(token);
+}
+
+export function rejectUnauthorized(request: Request) {
+  if (!authRequired()) return null;
+  const header = request.headers.get("authorization") || "";
+  const token = header.startsWith("Bearer ") ? header.slice("Bearer ".length).trim() : "";
+  if (isAcceptedToken(token)) return null;
+  return new Response(JSON.stringify({ error: "Unauthorized" }), {
+    status: 401,
+    headers: { "content-type": "application/json", "cache-control": "no-cache" },
+  });
 }
 
 export function s256(verifier: string) {

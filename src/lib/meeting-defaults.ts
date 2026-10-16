@@ -42,6 +42,7 @@ export function emptyMeeting(id = "demo"): MeetingState {
     pullRequest: null,
     docs: [],
     pending: null,
+    confirmQueue: [],
     progress: [],
     toolTrace: [],
     substantiveTurns: 0,
@@ -71,6 +72,8 @@ export function hydrateMeeting(raw: Partial<MeetingState> & { id: string }): Mee
     todos: raw.todos ?? [],
     chatter: raw.chatter ?? [],
     docs: raw.docs ?? [],
+    pending: raw.pending ?? null,
+    confirmQueue: Array.isArray(raw.confirmQueue) ? raw.confirmQueue : [],
     progress: raw.progress ?? [],
     toolTrace: raw.toolTrace ?? [],
   };

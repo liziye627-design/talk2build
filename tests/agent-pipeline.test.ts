@@ -1,11 +1,13 @@
 import { createServer, type Server } from "node:http";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { classifyUtterance } from "@/lib/classifier";
 import { parseExtraction } from "@/lib/agent/fixtures";
 import { prepareAgentWork, useDefaultJobRunner } from "@/lib/agent/dispatch";
 import { extractMeetingTurn } from "@/lib/agent/model";
 import { JobRunner, getJobRunner, resetJobRunner } from "@/lib/agent/runner";
 import type { AgentJob } from "@/lib/agent/types";
 import { getStore, resetStore } from "@/lib/meeting-store";
+import { executeTool } from "@/lib/tools";
 import { readWorkspaceFile } from "@/lib/workspace";
 
 function sampleJob(id: string, title = "Plan"): AgentJob {
@@ -77,6 +79,43 @@ describe("confirmation gate", () => {
     expect(meeting.scaffold).toBeNull();
     expect(meeting.workstreams.find((item) => item.kind === "code")?.status).toBe("waiting");
   });
+
+  it("names each code job and binds yes to that job id", async () => {
+    const state = getStore().ensure("gates");
+    state.scenario = "general";
+    state.title = "Gates";
+    getStore().persist("gates");
+    await prepareAgentWork({ meetingId: "gates", speaker: "Priya", text: "Scaffold the billing reconciler." });
+    await prepareAgentWork({ meetingId: "gates", speaker: "Chris", text: "Scaffold the invoice mailer." });
+    const meeting = getStore().get("gates");
+    const waiting = meeting.workstreams.filter((item) => item.kind === "code" && item.status === "waiting");
+    expect(waiting).toHaveLength(2);
+    expect(meeting.pending?.prompt).toMatch(/billing reconciler/i);
+    expect(meeting.pending?.prompt).not.toBe("I'll scaffold the export checker and run its tests. Say yes.");
+    const firstId = String(meeting.pending?.payload?.jobId || "");
+    const second = meeting.confirmQueue?.[0];
+    const secondId = String(second?.payload?.jobId || "");
+    expect(waiting.map((item) => item.jobId)).toEqual(expect.arrayContaining([firstId, secondId]));
+    expect(second?.prompt).toMatch(/invoice mailer/i);
+
+    const targeted = classifyUtterance({
+      text: `Yes ${secondId}`,
+      speaker: "Chris",
+      pending: meeting.pending,
+      queue: meeting.confirmQueue,
+      scenario: "general",
+    });
+    const scaffold = targeted.tools.find((tool) => tool.name === "scaffold_code");
+    expect(scaffold?.arguments.jobId).toBe(secondId);
+    executeTool("scaffold_code", { meetingId: "gates", ...(scaffold?.arguments ?? {}) });
+
+    const after = getStore().get("gates");
+    expect(after.workstreams.find((item) => item.jobId === secondId)?.status).toBe("ready");
+    expect(after.workstreams.find((item) => item.jobId === firstId)?.status).toBe("waiting");
+    expect(after.pending?.payload?.jobId).toBe(firstId);
+    expect(after.pending?.prompt).toMatch(/billing reconciler/i);
+    expect(after.confirmQueue ?? []).toHaveLength(0);
+  });
 });
 
 describe("openai-compatible stub", () => {
@@ -84,8 +123,10 @@ describe("openai-compatible stub", () => {
 
   afterEach(async () => {
     vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
     useDefaultJobRunner();
     resetJobRunner();
+    resetStore();
     if (server) {
       await new Promise<void>((resolve, reject) => server?.close((error) => (error ? reject(error) : resolve())));
       server = null;
@@ -144,6 +185,32 @@ describe("openai-compatible stub", () => {
     const plan = readWorkspaceFile(saved.workspaceId, "docs/plan.md");
     expect(plan).toMatch(/Maya/);
     expect(plan).not.toMatch(/https?:\/\//);
+  });
+
+  it("falls back to the template when the model errors and hides the raw error", async () => {
+    vi.stubEnv("TALK2BUILD_AGENT", "openai");
+    vi.stubEnv("OPENAI_API_KEY", "sk-test-secret-999");
+    vi.stubEnv("OPENAI_BASE_URL", "http://127.0.0.1:9");
+    vi.stubEnv("OPENAI_MODEL", "stub-model");
+    vi.stubGlobal("fetch", () => Promise.reject(new Error("upstream blew up sk-test-secret-999")));
+    const meeting = getStore().reset("fallback");
+    meeting.scenario = "general";
+    meeting.title = "Fallback";
+    getStore().persist("fallback");
+    await prepareAgentWork({
+      meetingId: "fallback",
+      speaker: "Maya",
+      text: "Let's plan the nightly export milestones.",
+    });
+    await getJobRunner().whenIdle();
+    const saved = getStore().get("fallback");
+    const card = saved.workstreams.find((item) => item.kind === "plan");
+    expect(card?.status).toBe("ready");
+    expect(card?.summary).toMatch(/template/i);
+    expect(JSON.stringify(card)).not.toMatch(/sk-test-secret-999/);
+    const plan = readWorkspaceFile(saved.workspaceId, "docs/plan.md");
+    expect(plan).toMatch(/Maya/);
+    expect(plan).not.toMatch(/sk-test-secret-999/);
   });
 
   it("rejects a model job whose kind is unknown", () => {

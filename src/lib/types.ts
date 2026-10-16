@@ -220,6 +220,7 @@ export interface MeetingState {
   pullRequest: PullRequestDraft | null;
   docs: DocRecord[];
   pending: PendingConfirm | null;
+  confirmQueue: PendingConfirm[];
   progress: ProgressReport[];
   toolTrace: ToolTraceEntry[];
   substantiveTurns: number;

@@ -339,7 +339,13 @@ export function executeTool(name: string, args: Record<string, unknown> = {}): T
         return finish(id, name, { ok: false, summary: "classify_utterance needs speaker and text." });
       }
       const state = store.get(id);
-      const classification = classifyUtterance({ text, speaker, pending: state.pending, scenario: state.scenario });
+      const classification = classifyUtterance({
+        text,
+        speaker,
+        pending: state.pending,
+        queue: state.confirmQueue,
+        scenario: state.scenario,
+      });
       store.stampKind(id, text, classification.kind);
       return finish(id, name, {
         ok: true,
@@ -491,17 +497,21 @@ export function executeTool(name: string, args: Record<string, unknown> = {}): T
           tests: [],
           status: "draft",
         });
-        const waiting = store.get(id).workstreams.find((item) => item.kind === "code" && (item.status === "waiting" || item.status === "working"));
-        if (waiting) {
-          waiting.status = "ready";
-          waiting.summary = `Scaffolded ${files.length} files.`;
-          waiting.progress = "Saved";
-          waiting.artifactPath = "docs/patch.diff";
-          waiting.updatedAt = new Date().toISOString();
-          store.persist(id);
-        }
       }
-      store.clearPending(id);
+      const jobId = textOf(args.jobId);
+      const streams = store.get(id).workstreams;
+      const waiting = jobId
+        ? streams.find((item) => item.kind === "code" && item.jobId === jobId)
+        : streams.find((item) => item.kind === "code" && (item.status === "waiting" || item.status === "working"));
+      if (waiting) {
+        waiting.status = "ready";
+        waiting.summary = `Scaffolded ${files.length} files.`;
+        waiting.progress = "Saved";
+        waiting.artifactPath = "docs/patch.diff";
+        waiting.updatedAt = new Date().toISOString();
+        store.persist(id);
+      }
+      store.clearPending(id, jobId || undefined);
       return finish(id, name, { ok: true, summary: `Scaffolded ${files.length} files.`, data: { files } });
     }
     case "pr_draft": {

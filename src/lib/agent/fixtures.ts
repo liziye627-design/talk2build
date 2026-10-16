@@ -3,9 +3,13 @@ import { claimNeedsEvidence } from "@/lib/evidence/claim";
 
 const JOB_KINDS = new Set(["plan", "design", "verify", "research", "code", "evidence", "selection", "review", "conclusion"]);
 
+function slug(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "item";
+}
+
 function job(meetingId: string, speaker: string, kind: AgentJob["kind"], title: string, brief: string, needsConfirm = false): AgentJob {
   return {
-    id: `job_${meetingId}_${kind}_${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+    id: `job_${meetingId}_${kind}_${slug(title)}_${slug(brief).slice(0, 24)}`,
     meetingId,
     kind,
     title,
@@ -75,7 +79,10 @@ export function keywordExtraction(meetingId: string, speaker: string, text: stri
   if (/already decided|look up|what did we|reference|research|pull what/i.test(text)) {
     jobs.push(job(meetingId, speaker, "research", "Research", text));
   }
-  if (/run (the )?tests|scaffold/i.test(text)) jobs.push(job(meetingId, speaker, "code", "Export checker", text, true));
+  if (/run (the )?tests|scaffold/i.test(text)) {
+    const title = text.replace(/\s+/g, " ").trim().slice(0, 80) || "Code";
+    jobs.push(job(meetingId, speaker, "code", title, text, true));
+  }
   if (claimNeedsEvidence(text)) jobs.push(job(meetingId, speaker, "evidence", "Evidence", text));
   return base(speaker, meetingId, jobs);
 }

@@ -16,11 +16,13 @@ export async function draftArtifact(job: AgentJob): Promise<DraftedArtifact> {
     "Write the meeting artifact as markdown or SVG. Cite only sources that appear in the brief. Do not invent URLs.",
     `Kind: ${job.kind}\nTitle: ${job.title}\nSpeaker: ${job.speaker}\nBrief: ${job.brief}`,
   );
-  if (live && live.trim().length > 40) {
+  if (live.text && live.text.trim().length > 40) {
     const path = artifactPath(job);
-    return { path, summary: `${job.title} from ${job.speaker}.`, body: stripUnknownUrls(live.trim(), job.brief) };
+    return { path, summary: `${job.title} from ${job.speaker}.`, body: stripUnknownUrls(live.text.trim(), job.brief) };
   }
-  return templateArtifact(job);
+  const template = templateArtifact(job);
+  if (!live.notice) return template;
+  return { ...template, summary: `${live.notice} ${template.summary}` };
 }
 
 export function writeArtifact(meetingId: string, artifact: DraftedArtifact) {

@@ -58,9 +58,22 @@ export async function extractMeetingTurn(input: ExtractInput, fetchImpl?: typeof
   }
 }
 
-export async function draftWithModel(system: string, user: string, fetchImpl?: typeof fetch): Promise<string | null> {
-  if (resolveAgentBackend() === "fixture") return null;
-  const prompt = { system, user };
-  if (resolveAgentBackend() === "bedrock") return completeWithBedrock(prompt);
-  return completeWithOpenAI(prompt, openAISettings(), fetchImpl);
+export const MODEL_FALLBACK_NOTICE = "The model request failed. This card uses the meeting template.";
+
+export async function draftWithModel(
+  system: string,
+  user: string,
+  fetchImpl?: typeof fetch,
+): Promise<{ text: string | null; notice: string | null }> {
+  if (resolveAgentBackend() === "fixture") return { text: null, notice: null };
+  try {
+    const prompt = { system, user };
+    const text =
+      resolveAgentBackend() === "bedrock"
+        ? await completeWithBedrock(prompt)
+        : await completeWithOpenAI(prompt, openAISettings(), fetchImpl);
+    return { text, notice: null };
+  } catch {
+    return { text: null, notice: MODEL_FALLBACK_NOTICE };
+  }
 }

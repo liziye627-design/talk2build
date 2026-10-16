@@ -4,7 +4,15 @@
   "private": true,
   "description": "Task-and-meeting agent. Alexa+ listens, the MCP server does the work, and the files land in the workspace.",
   "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
+    "predev": "node scripts/check-node.mjs",
+    "prebuild": "node scripts/check-node.mjs",
+    "prestart": "node scripts/check-node.mjs",
+    "pretest": "node scripts/check-node.mjs",
+    "premcp": "node scripts/check-node.mjs",
     "dev": "NODE_OPTIONS='--experimental-sqlite' next dev -p 43123 -H 0.0.0.0",
     "build": "next build",
     "start": "NODE_OPTIONS='--experimental-sqlite' next start -p 43123 -H 0.0.0.0",

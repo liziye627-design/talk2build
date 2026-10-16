@@ -7,7 +7,16 @@ export interface ClassifyInput {
   text: string;
   speaker: SpeakerId;
   pending: PendingConfirm | null;
+  queue?: PendingConfirm[];
   scenario?: "general" | "incident";
+}
+
+function choosePending(text: string, pending: PendingConfirm | null, queue: PendingConfirm[] = []) {
+  const named = [pending, ...queue].find((item) => {
+    const jobId = item?.payload?.jobId;
+    return typeof jobId === "string" && jobId.length > 0 && text.includes(jobId);
+  });
+  return named ?? pending;
 }
 
 function plan(
@@ -46,8 +55,14 @@ function isYes(value: string) {
   return /^(yes|yeah|yep|sure|ok|okay|go ahead|do it)[.!]?$/i.test(value);
 }
 
-function isAffirmative(text: string, action: string) {
+function isAffirmative(text: string, action: string, pending: PendingConfirm | null) {
   const value = text.trim();
+  const jobId = pending?.payload?.jobId;
+  const yesForJob =
+    typeof jobId === "string" &&
+    jobId.length > 0 &&
+    value.includes(jobId) &&
+    /^(yes|yeah|yep|sure|ok|okay|go ahead|do it)\b/i.test(value);
   if (action === "diff_fetch") {
     return /pull( the)? (diff|it)/i.test(value) || /^(yes|yeah|yep|sure|ok|okay)([, ]+pull it)?[.!]?$/i.test(value);
   }
@@ -58,7 +73,7 @@ function isAffirmative(text: string, action: string) {
     return /write (it|that|the doc)/i.test(value) || isYes(value);
   }
   if (action === "create_issues") return /create (the )?issues/i.test(value) || isYes(value);
-  if (action === "scaffold_code") return /\bscaffold\b/i.test(value) || isYes(value);
+  if (action === "scaffold_code") return /\bscaffold\b/i.test(value) || isYes(value) || yesForJob;
   if (action === "run_tests") return /run (the )?tests/i.test(value) || isYes(value);
   return false;
 }
@@ -107,7 +122,8 @@ function decisionBody(text: string) {
 
 export function classifyUtterance(input: ClassifyInput): Classification {
   const text = input.text.trim().replace(/\s+/g, " ");
-  const { speaker, pending } = input;
+  const { speaker } = input;
+  const pending = choosePending(text, input.pending, input.queue);
 
   if (!text) {
     return plan("chatter", "Empty utterance", [], null, 0.2);
@@ -129,7 +145,7 @@ export function classifyUtterance(input: ClassifyInput): Classification {
     );
   }
 
-  if (pending && isAffirmative(text, pending.action)) {
+  if (pending && isAffirmative(text, pending.action, pending)) {
     if (pending.action === "create_issues") {
       return plan(
         "confirm",

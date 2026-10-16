@@ -17,6 +17,7 @@ import {
   Video,
   VideoOff,
 } from "lucide-react";
+import { cancelMeetingJob } from "@/app/actions/cancel-job";
 import { DiffColumn, PoolColumn } from "@/components/room-columns";
 import { DecisionTree } from "@/components/decision-tree";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -428,7 +429,7 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
               <AgentCards
                 meeting={meeting}
                 onCancel={(jobId) => {
-                  void fetch(`/api/meetings/${meeting.id}/jobs/${jobId}/cancel`, { method: "POST" }).then(() => refresh());
+                  void cancelMeetingJob(meeting.id, jobId).then(() => refresh());
                 }}
                 onDebate={() => void say("@architect @skeptic debate this branch", "You")}
               />

@@ -233,14 +233,24 @@ export class MeetingStore {
   askConfirm(id: string, pending: Omit<PendingConfirm, "id">): PendingConfirm {
     const state = this.ensure(id);
     const stored: PendingConfirm = { ...pending, id: this.nextId(state, "ask") };
-    state.pending = stored;
+    if (!state.confirmQueue) state.confirmQueue = [];
+    if (!state.pending) state.pending = stored;
+    else state.confirmQueue = [...state.confirmQueue, stored];
     this.touch(state);
     return stored;
   }
 
-  clearPending(id: string) {
+  clearPending(id: string, jobId?: string) {
     const state = this.ensure(id);
-    state.pending = null;
+    const queue = [...(state.confirmQueue ?? [])];
+    const matches = (item: PendingConfirm | null) => !jobId || item?.payload?.jobId === jobId;
+    if (matches(state.pending)) {
+      state.pending = queue.shift() ?? null;
+    } else {
+      const index = queue.findIndex((item) => item.payload?.jobId === jobId);
+      if (index >= 0) queue.splice(index, 1);
+    }
+    state.confirmQueue = queue;
     this.touch(state);
   }
 

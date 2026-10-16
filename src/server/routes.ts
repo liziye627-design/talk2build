@@ -15,6 +15,7 @@ import {
   issueCode,
   issuerFrom,
   protectedResourceMetadata,
+  rejectUnauthorized,
 } from "@/server/oauth";
 
 function json(body: unknown, status = 200) {
@@ -125,6 +126,7 @@ async function runTurn(request: Request) {
       text,
       speaker: speaker.trim(),
       pending: meeting.pending,
+      queue: meeting.confirmQueue,
       stateSummary: summarizeMeeting(meeting),
       scenario: meeting.scenario,
     });
@@ -305,6 +307,8 @@ export async function routeHttp(request: Request): Promise<Response> {
   }
   const jobCancel = pathname.match(/^\/api\/meetings\/([^/]+)\/jobs\/([^/]+)\/cancel$/);
   if (jobCancel && request.method === "POST") {
+    const denied = rejectUnauthorized(request);
+    if (denied) return denied;
     const { cancelAgentJob } = await import("@/lib/agent/dispatch");
     const meetingId = decodeURIComponent(jobCancel[1] || "");
     const jobId = decodeURIComponent(jobCancel[2] || "");

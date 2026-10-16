@@ -1,8 +1,8 @@
 import { createHash, randomBytes } from "node:crypto";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { AlexaPlusClient } from "@/alexa/client";
 import { resetSessions } from "@/mcp/sessions";
-import { resetOAuth } from "@/server/oauth";
+import { assertProductionToken, authRequired, isAcceptedToken, resetOAuth } from "@/server/oauth";
 import { startServer } from "@/server/standalone";
 import { PROTOCOL_VERSION } from "@/lib/types";
 
@@ -187,5 +187,44 @@ describe("streamable HTTP MCP", () => {
     expect(allowed.status).toBe(200);
     const body = (await allowed.json()) as { result: { protocolVersion: string } };
     expect(body.result.protocolVersion).toBe(PROTOCOL_VERSION);
+  });
+
+  it("requires a random production token and protects job cancel", async () => {
+    const previousToken = process.env.MCP_DEMO_TOKEN;
+    const previousAuth = process.env.MCP_REQUIRE_AUTH;
+    try {
+      vi.stubEnv("NODE_ENV", "production");
+      delete process.env.MCP_DEMO_TOKEN;
+      delete process.env.MCP_REQUIRE_AUTH;
+      expect(authRequired()).toBe(true);
+      expect(() => assertProductionToken()).toThrow(/random/);
+      process.env.MCP_DEMO_TOKEN = "talk2build-demo";
+      expect(() => assertProductionToken()).toThrow(/talk2build-demo/);
+      expect(isAcceptedToken("talk2build-demo")).toBe(false);
+
+      process.env.MCP_DEMO_TOKEN = "unit-test-token-not-demo";
+      expect(() => assertProductionToken()).not.toThrow();
+      expect(isAcceptedToken("unit-test-token-not-demo")).toBe(true);
+      expect(isAcceptedToken("talk2build-demo")).toBe(false);
+
+      const denied = await fetch(`${server.url}/api/meetings/m1/jobs/job_x/cancel`, { method: "POST" });
+      expect(denied.status).toBe(401);
+      const demo = await fetch(`${server.url}/api/meetings/m1/jobs/job_x/cancel`, {
+        method: "POST",
+        headers: { authorization: "Bearer talk2build-demo" },
+      });
+      expect(demo.status).toBe(401);
+      const allowed = await fetch(`${server.url}/api/meetings/m1/jobs/job_x/cancel`, {
+        method: "POST",
+        headers: { authorization: "Bearer unit-test-token-not-demo" },
+      });
+      expect(allowed.status).toBe(200);
+    } finally {
+      vi.unstubAllEnvs();
+      if (previousToken === undefined) delete process.env.MCP_DEMO_TOKEN;
+      else process.env.MCP_DEMO_TOKEN = previousToken;
+      if (previousAuth === undefined) delete process.env.MCP_REQUIRE_AUTH;
+      else process.env.MCP_REQUIRE_AUTH = previousAuth;
+    }
   });
 });

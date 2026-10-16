@@ -12,7 +12,7 @@ npm test
 npm run dev
 ```
 
-Open [http://127.0.0.1:43123](http://127.0.0.1:43123). No API keys. The dev server needs Node's SQLite flag; `npm run dev` sets `NODE_OPTIONS=--experimental-sqlite`.
+Open [http://127.0.0.1:43123](http://127.0.0.1:43123). No API keys. Talk2Build needs Node.js 22 or newer because meetings are stored with `node:sqlite`. `.nvmrc` is `22`. `npm test`, `npm run dev`, and `npm run build` check the version first and stop with that requirement on Node 20 instead of exiting from a missing module. `npm run dev` also sets `NODE_OPTIONS=--experimental-sqlite`.
 
 On the meeting home:
 
@@ -113,7 +113,8 @@ To put it on a device:
 2. Replace every `https://example.com/...` value in `addon.json` with that origin. Icons and the carousel already exist at `/alexa/*.png`. Privacy and terms are `/privacy` and `/terms`.
 3. Point `integrations[].config.endpoints.default.uri` at `https://YOUR_HOST/mcp`.
 4. Install the [Alexa AI CLI](https://developer.amazon.com/docs/alexaplus/add-ons/mcp-toolkit-quickstart.html), run `alexa-ai configure`, then `alexa-ai deploy` from this repo once the manifest paths match what the CLI expects (`addon-package/addon.json`).
-5. Optional: `MCP_REQUIRE_AUTH=true`. Unauthenticated `/mcp` calls return `401` with no `WWW-Authenticate` header. Protected-resource and authorization-server metadata are under `/.well-known/`, and the token endpoint speaks OAuth 2.1 authorization-code + PKCE `S256`. The local authorization server auto-approves. Do not use it as a production identity provider.
+5. Auth is off for local development. Set `MCP_REQUIRE_AUTH=true` to require a bearer token. Unauthenticated `/mcp` calls then return `401` with no `WWW-Authenticate` header. Protected-resource and authorization-server metadata are under `/.well-known/`, and the token endpoint speaks OAuth 2.1 authorization-code + PKCE `S256`. The local authorization server auto-approves. Do not use it as a production identity provider.
+6. `NODE_ENV=production` always requires auth, even when `MCP_REQUIRE_AUTH` is unset. Set `MCP_DEMO_TOKEN` to a random secret of at least 16 characters. The public value `talk2build-demo` is rejected. The same bearer token is required on `POST /api/meetings/:id/jobs/:jobId/cancel`. The in-room cancel button does not send that token; it cancels through a server action. Send `Authorization: Bearer $MCP_DEMO_TOKEN` for the HTTP cancel route and for `/mcp`.
 
 `npm run mcp` serves the same routes headless, bound to `127.0.0.1` unless you set `HOST`.
 

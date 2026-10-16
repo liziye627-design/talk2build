@@ -44,7 +44,9 @@ function abortError() {
 function publish(meetingId: string, draft: Omit<Workstream, "id" | "updatedAt"> & { id?: string }) {
   const store = getStore();
   const state = store.ensure(meetingId);
-  const current = state.workstreams.find((item) => item.kind === draft.kind && item.title === draft.title);
+  const current = draft.jobId
+    ? state.workstreams.find((item) => item.jobId === draft.jobId)
+    : state.workstreams.find((item) => item.kind === draft.kind && item.title === draft.title);
   const next: Workstream = {
     id: current?.id ?? `work_${state.seq + 1}`,
     kind: draft.kind,
@@ -252,12 +254,12 @@ export async function prepareAgentWork(input: { meetingId: string; speaker: stri
   }
   for (const item of extraction.jobs) {
     if (item.needsConfirm || item.kind === "code") {
-      const prompt = "I'll scaffold the export checker and run its tests. Say yes.";
+      const prompt = `I'll scaffold ${item.title}. ${item.brief} Say yes to confirm ${item.id}.`;
       executeTool("confirm_ask", {
         meetingId: input.meetingId,
         action: "scaffold_code",
         prompt,
-        payload: { prompt: item.brief },
+        payload: { prompt: item.brief, jobId: item.id, title: item.title },
       });
       publish(input.meetingId, {
         kind: "code",
