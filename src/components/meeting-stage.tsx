@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { cancelMeetingJob } from "@/app/actions/cancel-job";
 import { DiffColumn, PoolColumn } from "@/components/room-columns";
-import { DecisionTree } from "@/components/decision-tree";
+import { DecisionTree, displayPrompt } from "@/components/decision-tree";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { DEMO_SCRIPT } from "@/lib/demo-script";
 import { PLANNING_SCRIPT } from "@/lib/planning-script";
@@ -602,7 +602,7 @@ function AgentCards({ meeting, onCancel, onDebate }: { meeting: MeetingState; on
       )}
       {meeting.pending ? (
         <p className="rounded-lg bg-warn-soft px-4 py-3 text-sm leading-6 text-warn" data-testid="confirm-wait">
-          {ui.stage.waitingYes}{meeting.pending.prompt}
+          {ui.stage.waitingYes}{displayPrompt(meeting.pending.prompt)}
         </p>
       ) : null}
       {meeting.chatter.length > 0 ? (

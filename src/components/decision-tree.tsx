@@ -6,6 +6,11 @@ import type { EvidenceOption, EvidenceReport, TechSelection } from "@/lib/eviden
 import type { MeetingState, Workstream } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 
+/** Confirm prompts end with the job id so a spoken "yes <id>" can pick one; the card does not need to show it. */
+export function displayPrompt(text: string) {
+  return text.replace(/\s*Say yes to confirm \S+\.?$/, " Say yes to confirm.");
+}
+
 function statusVariant(status: Workstream["status"]) {
   if (status === "ready") return "ok" as const;
   if (status === "cancelled") return "danger" as const;
@@ -196,7 +201,7 @@ function JobCard({ stream, onCancel, workspaceId }: { stream: Workstream; onCanc
       </div>
       <h3 className="mt-2 text-sm font-medium">{TITLE_LABEL[stream.title] ?? stream.title}</h3>
       <p className="mt-1 text-xs leading-5 text-[#333]" data-testid={stream.kind === "review" ? "requirement-review" : undefined}>
-        {stream.summary}
+        {displayPrompt(stream.summary)}
       </p>
       {stream.progress ? (
         <p className="mt-1 text-xs text-[#006fff]" data-testid="job-progress">
