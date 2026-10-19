@@ -1,0 +1,284 @@
+{
+ "timeline": [
+  {
+   "seg": "seg/00.mp4",
+   "key": "title",
+   "start": 0,
+   "end": 3.67
+  },
+  {
+   "seg": "seg/01.mp4",
+   "key": "s01_hook",
+   "start": 3.67,
+   "end": 15.74
+  },
+  {
+   "seg": "seg/02.mp4",
+   "key": "s02_goal",
+   "start": 15.74,
+   "end": 26.77
+  },
+  {
+   "seg": "seg/03.mp4",
+   "key": "s03_design",
+   "start": 26.77,
+   "end": 39.8
+  },
+  {
+   "seg": "seg/04.mp4",
+   "key": "s04_evidence",
+   "start": 39.8,
+   "end": 57.84
+  },
+  {
+   "seg": "seg/05.mp4",
+   "key": "s05_pizza",
+   "start": 57.84,
+   "end": 64.37
+  },
+  {
+   "seg": "seg/06.mp4",
+   "key": "s06_phone",
+   "start": 64.37,
+   "end": 71.9
+  },
+  {
+   "seg": "seg/07.mp4",
+   "key": "s07_yes",
+   "start": 71.9,
+   "end": 90.94
+  },
+  {
+   "seg": "seg/08.mp4",
+   "key": "s08_play",
+   "start": 90.94,
+   "end": 112.97
+  },
+  {
+   "seg": "seg/09.mp4",
+   "key": "s09_pizza",
+   "start": 112.97,
+   "end": 119.0
+  },
+  {
+   "seg": "seg/10.mp4",
+   "key": "s10_end",
+   "start": 119.0,
+   "end": 128.04
+  },
+  {
+   "seg": "seg/90.mp4",
+   "key": "s11_how",
+   "start": 128.04,
+   "end": 140.94
+  },
+  {
+   "seg": "seg/99.mp4",
+   "key": "end",
+   "start": 140.94,
+   "end": 145.91
+  }
+ ],
+ "captions": [
+  {
+   "start": 3.97,
+   "end": 5.45,
+   "text": "Three friends, one deadline."
+  },
+  {
+   "start": 5.2,
+   "end": 8.88,
+   "text": "The pizza is twenty-five minutes out, and they want a"
+  },
+  {
+   "start": 8.63,
+   "end": 10.7,
+   "text": "game before it lands."
+  },
+  {
+   "start": 10.45,
+   "end": 13.74,
+   "text": "Talk2Build sits in the meeting, with Alexa plus as its voice."
+  },
+  {
+   "start": 16.04,
+   "end": 18.47,
+   "text": "Maya says the goal out loud."
+  },
+  {
+   "start": 18.22,
+   "end": 19.28,
+   "text": "Nobody types a command."
+  },
+  {
+   "start": 19.03,
+   "end": 22.89,
+   "text": "A plan card appears, and the decision and action items"
+  },
+  {
+   "start": 22.64,
+   "end": 24.07,
+   "text": "are saved under her name."
+  },
+  {
+   "start": 27.07,
+   "end": 28.54,
+   "text": "Chris sketches the architecture."
+  },
+  {
+   "start": 28.29,
+   "end": 30.69,
+   "text": "Priya asks for the game screen."
+  },
+  {
+   "start": 30.44,
+   "end": 33.94,
+   "text": "Both land on the shared stage while they are still talking."
+  },
+  {
+   "start": 40.1,
+   "end": 42.98,
+   "text": "Then the classic argument: Phaser or PixiJS?"
+  },
+  {
+   "start": 42.73,
+   "end": 44.59,
+   "text": "This card is live."
+  },
+  {
+   "start": 44.34,
+   "end": 48.9,
+   "text": "Real GitHub and npm numbers, each with its source."
+  },
+  {
+   "start": 48.65,
+   "end": 49.58,
+   "text": "Talk2Build recommends."
+  },
+  {
+   "start": 49.33,
+   "end": 53.23,
+   "text": "The humans decide: plain canvas, zero dependencies."
+  },
+  {
+   "start": 58.14,
+   "end": 59.95,
+   "text": "Is the pizza here yet?"
+  },
+  {
+   "start": 59.7,
+   "end": 60.84,
+   "text": "Small talk gets parked."
+  },
+  {
+   "start": 60.59,
+   "end": 62.35,
+   "text": "It stays out of the plan."
+  },
+  {
+   "start": 64.67,
+   "end": 68.33,
+   "text": "A feasibility card for phones: plain canvas works, as"
+  },
+  {
+   "start": 68.08,
+   "end": 69.5,
+   "text": "long as it gets touch controls."
+  },
+  {
+   "start": 72.2,
+   "end": 74.18,
+   "text": "Chris asks for the build."
+  },
+  {
+   "start": 73.93,
+   "end": 77.22,
+   "text": "Anything that writes code waits for a human yes."
+  },
+  {
+   "start": 76.97,
+   "end": 78.5,
+   "text": "Maya says yes."
+  },
+  {
+   "start": 78.25,
+   "end": 80.81,
+   "text": "Talk2Build writes a spec from the meeting's decisions,"
+  },
+  {
+   "start": 80.56,
+   "end": 84.46,
+   "text": "scaffolds the prototype from its game-jam template, and"
+  },
+  {
+   "start": 84.21,
+   "end": 86.17,
+   "text": "runs the tests."
+  },
+  {
+   "start": 85.92,
+   "end": 86.95,
+   "text": "Seven of seven pass."
+  },
+  {
+   "start": 91.24,
+   "end": 94.49,
+   "text": "And here it is, playable right inside the meeting."
+  },
+  {
+   "start": 94.24,
+   "end": 95.37,
+   "text": "Space Cat Courier."
+  },
+  {
+   "start": 95.12,
+   "end": 98.4,
+   "text": "Dodge the asteroids, grab pizza for fuel."
+  },
+  {
+   "start": 98.15,
+   "end": 101.17,
+   "text": "Every ten parcels, the asteroids speed up."
+  },
+  {
+   "start": 113.27,
+   "end": 115.09,
+   "text": "Then the real pizza arrived."
+  },
+  {
+   "start": 114.84,
+   "end": 115.86,
+   "text": "Parked, naturally."
+  },
+  {
+   "start": 119.3,
+   "end": 120.07,
+   "text": "End the meeting."
+  },
+  {
+   "start": 119.82,
+   "end": 123.15,
+   "text": "The minutes, the spec, the designs and the prototype"
+  },
+  {
+   "start": 122.9,
+   "end": 124.03,
+   "text": "stay in the workspace."
+  },
+  {
+   "start": 128.44,
+   "end": 132.03,
+   "text": "Under the hood, Alexa plus talks to a self-hosted MCP"
+  },
+  {
+   "start": 131.78,
+   "end": 136.02,
+   "text": "server over Streamable HTTP, and the tools do the work."
+  },
+  {
+   "start": 135.77,
+   "end": 139.73,
+   "text": "This demo runs in mock mode, on recorded fixtures."
+  }
+ ]
+}

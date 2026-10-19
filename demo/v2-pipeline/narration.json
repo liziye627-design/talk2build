@@ -1,0 +1,15 @@
+{
+ "title": "Talk2Build. The meeting that ships.",
+ "s01_hook": "Three friends, one deadline. The pizza is twenty-five minutes out, and they want a game before it lands. Talk2Build sits in the meeting, with Alexa plus as its voice.",
+ "s02_goal": "Maya says the goal out loud. Nobody types a command. A plan card appears, and the decision and action items are saved under her name.",
+ "s03_design": "Chris sketches the architecture. Priya asks for the game screen. Both land on the shared stage while they are still talking.",
+ "s04_evidence": "Then the classic argument: Phaser or PixiJS? This card is live. Real GitHub and npm numbers, each with its source. Talk2Build recommends. The humans decide: plain canvas, zero dependencies.",
+ "s05_pizza": "Is the pizza here yet? Small talk gets parked. It stays out of the plan.",
+ "s06_phone": "A feasibility card for phones: plain canvas works, as long as it gets touch controls.",
+ "s07_yes": "Chris asks for the build. Anything that writes code waits for a human yes. Maya says yes. Talk2Build writes a spec from the meeting's decisions, scaffolds the prototype from its game-jam template, and runs the tests. Seven of seven pass.",
+ "s08_play": "And here it is, playable right inside the meeting. Space Cat Courier. Dodge the asteroids, grab pizza for fuel. Every ten parcels, the asteroids speed up.",
+ "s09_pizza": "Then the real pizza arrived. Parked, naturally.",
+ "s10_end": "End the meeting. The minutes, the spec, the designs and the prototype stay in the workspace.",
+ "s11_how": "Under the hood, Alexa plus talks to a self-hosted MCP server over Streamable HTTP, and the tools do the work. This demo runs in mock mode, on recorded fixtures.",
+ "end": "Talk2Build. Open source on GitHub."
+}

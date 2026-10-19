@@ -1,0 +1,51 @@
+[Script Info]
+ScriptType: v4.00+
+PlayResX: 1920
+PlayResY: 1080
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Cap,DejaVu Sans,44,&H00FFFFFF,&H00FFFFFF,&H80000000,&H99101018,0,0,0,0,100,100,0,0,3,14,0,2,120,120,46,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:03.97,0:00:05.45,Cap,,0,0,0,,Three friends, one deadline.
+Dialogue: 0,0:00:05.20,0:00:08.88,Cap,,0,0,0,,The pizza is twenty-five minutes out, and they want a
+Dialogue: 0,0:00:08.63,0:00:10.70,Cap,,0,0,0,,game before it lands.
+Dialogue: 0,0:00:10.45,0:00:13.74,Cap,,0,0,0,,Talk2Build sits in the meeting, with Alexa plus as its voice.
+Dialogue: 0,0:00:16.04,0:00:18.47,Cap,,0,0,0,,Maya says the goal out loud.
+Dialogue: 0,0:00:18.22,0:00:19.28,Cap,,0,0,0,,Nobody types a command.
+Dialogue: 0,0:00:19.03,0:00:22.89,Cap,,0,0,0,,A plan card appears, and the decision and action items
+Dialogue: 0,0:00:22.64,0:00:24.07,Cap,,0,0,0,,are saved under her name.
+Dialogue: 0,0:00:27.07,0:00:28.54,Cap,,0,0,0,,Chris sketches the architecture.
+Dialogue: 0,0:00:28.29,0:00:30.69,Cap,,0,0,0,,Priya asks for the game screen.
+Dialogue: 0,0:00:30.44,0:00:33.94,Cap,,0,0,0,,Both land on the shared stage while they are still talking.
+Dialogue: 0,0:00:40.10,0:00:42.98,Cap,,0,0,0,,Then the classic argument: Phaser or PixiJS?
+Dialogue: 0,0:00:42.73,0:00:44.59,Cap,,0,0,0,,This card is live.
+Dialogue: 0,0:00:44.34,0:00:48.90,Cap,,0,0,0,,Real GitHub and npm numbers, each with its source.
+Dialogue: 0,0:00:48.65,0:00:49.58,Cap,,0,0,0,,Talk2Build recommends.
+Dialogue: 0,0:00:49.33,0:00:53.23,Cap,,0,0,0,,The humans decide: plain canvas, zero dependencies.
+Dialogue: 0,0:00:58.14,0:00:59.95,Cap,,0,0,0,,Is the pizza here yet?
+Dialogue: 0,0:00:59.70,0:01:00.84,Cap,,0,0,0,,Small talk gets parked.
+Dialogue: 0,0:01:00.59,0:01:02.35,Cap,,0,0,0,,It stays out of the plan.
+Dialogue: 0,0:01:04.67,0:01:08.33,Cap,,0,0,0,,A feasibility card for phones: plain canvas works, as
+Dialogue: 0,0:01:08.08,0:01:09.50,Cap,,0,0,0,,long as it gets touch controls.
+Dialogue: 0,0:01:12.20,0:01:14.18,Cap,,0,0,0,,Chris asks for the build.
+Dialogue: 0,0:01:13.93,0:01:17.22,Cap,,0,0,0,,Anything that writes code waits for a human yes.
+Dialogue: 0,0:01:16.97,0:01:18.50,Cap,,0,0,0,,Maya says yes.
+Dialogue: 0,0:01:18.25,0:01:20.81,Cap,,0,0,0,,Talk2Build writes a spec from the meeting's decisions,
+Dialogue: 0,0:01:20.56,0:01:24.46,Cap,,0,0,0,,scaffolds the prototype from its game-jam template, and
+Dialogue: 0,0:01:24.21,0:01:26.17,Cap,,0,0,0,,runs the tests.
+Dialogue: 0,0:01:25.92,0:01:26.95,Cap,,0,0,0,,Seven of seven pass.
+Dialogue: 0,0:01:31.24,0:01:34.49,Cap,,0,0,0,,And here it is, playable right inside the meeting.
+Dialogue: 0,0:01:34.24,0:01:35.37,Cap,,0,0,0,,Space Cat Courier.
+Dialogue: 0,0:01:35.12,0:01:38.40,Cap,,0,0,0,,Dodge the asteroids, grab pizza for fuel.
+Dialogue: 0,0:01:38.15,0:01:41.17,Cap,,0,0,0,,Every ten parcels, the asteroids speed up.
+Dialogue: 0,0:01:53.27,0:01:55.09,Cap,,0,0,0,,Then the real pizza arrived.
+Dialogue: 0,0:01:54.84,0:01:55.86,Cap,,0,0,0,,Parked, naturally.
+Dialogue: 0,0:01:59.30,0:02:00.07,Cap,,0,0,0,,End the meeting.
+Dialogue: 0,0:01:59.82,0:02:03.15,Cap,,0,0,0,,The minutes, the spec, the designs and the prototype
+Dialogue: 0,0:02:02.90,0:02:04.03,Cap,,0,0,0,,stay in the workspace.
+Dialogue: 0,0:02:08.44,0:02:12.03,Cap,,0,0,0,,Under the hood, Alexa plus talks to a self-hosted MCP
+Dialogue: 0,0:02:11.78,0:02:16.02,Cap,,0,0,0,,server over Streamable HTTP, and the tools do the work.
+Dialogue: 0,0:02:15.77,0:02:19.73,Cap,,0,0,0,,This demo runs in mock mode, on recorded fixtures.
