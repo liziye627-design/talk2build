@@ -1,3 +1,4 @@
+import { ui } from "@/lib/ui-text";
 import { draftWithModel, resolveAgentBackend } from "@/lib/agent/model";
 import { getStore, type MeetingStore } from "@/lib/meeting-store";
 import { CONCLUSION_SYSTEM, SEAT_SYSTEM, buildCitationContext, parseConclusion, parseSeatReply, seatUserPrompt } from "@/lib/seats/prompts";
@@ -112,7 +113,7 @@ function notice(meetingId: string, text: string) {
 
 /** S6 offline reply. Never produces seat content. */
 export function offlineNotice(meetingId: string, seats: SeatId[]) {
-  notice(meetingId, `${seats.map(seatLabel).join("、")}当前不可用（离线：未配置模型密钥）。`);
+  notice(meetingId, ui.seats.offline(seats.map(seatLabel).join(ui.seats.join)));
 }
 
 async function askSeat(
@@ -131,7 +132,7 @@ async function askSeat(
     const raw = await callModel(SEAT_SYSTEM[seatId], seatUserPrompt({ question, context, transcript }), signal);
     const reply = raw ? parseSeatReply(raw, context) : null;
     if (!reply) {
-      notice(meetingId, `${seatLabel(seatId)}暂时不可用，本轮没有发言。`);
+      notice(meetingId, ui.seats.unavailable(seatLabel(seatId)));
       return null;
     }
     const turn = getStore().addSeatTurn(meetingId, { seatId, debateId, round, text: reply.text, citations: reply.citations, status: "done" });
@@ -166,7 +167,7 @@ async function runDebate(meetingId: string, topic: string, maxRounds: number, si
     const parsed = raw ? parseConclusion(raw, context) : null;
     if (!parsed) {
       store.updateDebate(meetingId, debate.id, { status: "failed" });
-      notice(meetingId, "辩论已结束，但结论生成失败，没有结论卡。");
+      notice(meetingId, ui.seats.noConclusion);
       return;
     }
     const card = store.addConclusion(meetingId, { ...parsed, debateId: debate.id, topic, status: "pending" });
@@ -187,7 +188,7 @@ function askConclusion(meetingId: string, card: ConclusionCard) {
   executeTool("confirm_ask", {
     meetingId,
     action: "confirm_conclusion",
-    prompt: `待人确认：结论「${card.recommendation}」。说 "yes ${card.id}" 写入决策记录。`,
+    prompt: ui.seats.confirmConclusion(card.recommendation, card.id),
     payload: { jobId: card.id, conclusionId: card.id, recommendation: card.recommendation, topic: card.topic },
   });
 }
@@ -266,7 +267,7 @@ export function routeSeatUtterance(input: { meetingId: string; speaker: string; 
     const humans = getStore().get(input.meetingId).participants.map((person) => person.label.toLowerCase());
     const missing = parsed.unknown.filter((name) => !humans.includes(name.toLowerCase()));
     if (missing.length === 0) return { handled: false, offlineDebate: false };
-    notice(input.meetingId, `该席位不存在：${missing.map((name) => `@${name}`).join("、")}。可以这样 @：${MENTION_HINT}。`);
+    notice(input.meetingId, ui.seats.unknownSeat(missing.map((name) => `@${name}`).join(ui.seats.join), MENTION_HINT));
     return { handled: true, offlineDebate: false };
   }
   syncSeatParticipants(input.meetingId);

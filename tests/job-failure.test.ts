@@ -28,7 +28,7 @@ describe("C2 failed job card", () => {
     await getJobRunner().whenIdle();
     const card = getStore().get("c2").workstreams.find((w) => w.jobId === "job_fail");
     expect(card?.summary).toBe(JOB_FAILED_SUMMARY);
-    expect(card?.summary).toBe("任务失败，已记录日志");
+    expect(card?.summary).toBe("The job failed. The error is in the server log.");
     expect(JSON.stringify(card)).not.toMatch(/home\/secret|\.env|sk-test/);
     expect(log.mock.calls.flat().join(" ")).toMatch(/\/home\/secret/);
   });

@@ -1,3 +1,4 @@
+import { ui } from "@/lib/ui-text";
 import { draftArtifact, writeArtifact } from "@/lib/agent/artifacts";
 import { agentModelLabel, extractMeetingTurn, resolveAgentBackend } from "@/lib/agent/model";
 import { bindJobExecutor, ensureJobExecutor, getJobRunner } from "@/lib/agent/runner";
@@ -12,7 +13,7 @@ import { isDeferral } from "@/lib/classifier";
 import type { MeetingState, WorkKind, WorkStatus, Workstream } from "@/lib/types";
 
 /** C2: the card never shows the raw error (it can carry paths or provider detail); the server log keeps it. */
-export const JOB_FAILED_SUMMARY = "任务失败，已记录日志";
+export const JOB_FAILED_SUMMARY = ui.agent.jobFailed;
 
 function paceMs() {
   if (process.env.VITEST || process.env.NODE_ENV === "test") return 0;
@@ -179,7 +180,7 @@ async function runEvidenceJob(job: AgentJob, signal: AbortSignal) {
     title: "Tech selection",
     status: "ready",
     // E10: a recommendation is never a decision; it waits for a human and is not written to decision_record.
-    summary: `待人确认：${selection.recommendation}`,
+    summary: `${ui.agent.pendingHuman}${selection.recommendation}`,
     progress: selection.confidence,
     speaker: job.speaker,
     selection,
@@ -210,8 +211,8 @@ function publishDebate(meetingId: string, speaker: string) {
     kind: "conclusion",
     title: "Conclusion",
     status: "waiting",
-    summary: `待人确认：${debate.conclusion}`,
-    progress: "基于证据自动生成",
+    summary: `${ui.agent.pendingHuman}${debate.conclusion}`,
+    progress: ui.agent.generatedFromEvidence,
     speaker,
     debate,
     debateGenerated: "evidence",

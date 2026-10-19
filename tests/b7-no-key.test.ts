@@ -80,8 +80,8 @@ describe("B7/B6 through the real HTTP utterance entry (no model key)", () => {
   it("B6: a new meeting already lists both AI seats (offline) on create and first GET", async () => {
     const meeting = await newMeeting();
     expect(meeting.participants.filter((p) => p.kind === "ai").map((p) => [p.label, p.aiStatus])).toEqual([
-      ["AI 架构师", "offline"],
-      ["AI 质疑者", "offline"],
+      ["AI Architect", "offline"],
+      ["AI Skeptic", "offline"],
     ]);
     const got = (await (await fetch(`${server.url}/api/meetings/${meeting.id}`)).json()) as { meeting: MeetingState };
     expect(got.meeting.participants.filter((p) => p.kind === "ai")).toHaveLength(2);
@@ -91,7 +91,7 @@ describe("B7/B6 through the real HTTP utterance entry (no model key)", () => {
     const { id } = await newMeeting();
     const body = await say(id, ZH_DEMO);
     expect(body.kind).not.toBe("chatter");
-    expect(body.reply).toMatch(/已记录需求/);
+    expect(body.reply).toMatch(/Requirement logged/);
     const working = body.state.workstreams.filter((w) => w.jobId && w.status === "working");
     expect(working.map((w) => w.kind)).toEqual(expect.arrayContaining(["plan", "research"]));
     const res = await fetch(`${server.url}/api/meetings/${id}/jobs/${encodeURIComponent(working[0]!.jobId!)}/cancel`, { method: "POST" });

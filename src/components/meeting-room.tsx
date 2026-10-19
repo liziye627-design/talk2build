@@ -1,5 +1,6 @@
 "use client";
 
+import { ui } from "@/lib/ui-text";
 import { ASSISTANT_NAME } from "@/lib/branding";
 import { useEffect, useRef, useState } from "react";
 import { Mic, Play, RotateCcw, Square } from "lucide-react";
@@ -164,7 +165,7 @@ export function MeetingRoom() {
       }
       return body;
     } catch {
-      setError(`${ASSISTANT_NAME}无法连接 MCP 服务。`);
+      setError(ui.room.mcpDown(ASSISTANT_NAME));
       return null;
     } finally {
       setBusy(false);
@@ -411,7 +412,7 @@ export function MeetingRoom() {
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <p className="min-w-0 flex-1 text-sm text-brand" data-testid="alexa-reply" aria-live="polite">
-            {busy ? `${ASSISTANT_NAME}正在处理…` : caption || `${ASSISTANT_NAME}已在线。`}
+            {busy ? ui.room.busy(ASSISTANT_NAME) : caption || ui.room.online(ASSISTANT_NAME)}
           </p>
           {state.pending ? (
             <Button
@@ -469,7 +470,7 @@ export function MeetingRoom() {
               placeholder="Say the correction"
               className="h-10 flex-1 rounded-full border border-line bg-sunken px-4 text-sm outline-none"
             />
-            <Button type="submit">告诉{ASSISTANT_NAME}</Button>
+            <Button type="submit">{ui.room.tell(ASSISTANT_NAME)}</Button>
           </form>
         </DialogContent>
       </Dialog>

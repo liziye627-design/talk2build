@@ -1,5 +1,6 @@
 "use client";
 
+import { ui } from "@/lib/ui-text";
 import { STATUS_LABEL } from "@/lib/branding";
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
@@ -19,10 +20,10 @@ interface MeetingCard {
 }
 
 const actions = [
-  { id: "join", label: "加入会议", icon: LogIn },
-  { id: "quick", label: "快速会议", icon: Video },
-  { id: "schedule", label: "预定会议", icon: CalendarPlus },
-  { id: "share", label: "共享屏幕", icon: MonitorUp },
+  { id: "join", label: ui.home.join, icon: LogIn },
+  { id: "quick", label: ui.home.quick, icon: Video },
+  { id: "schedule", label: ui.home.schedule, icon: CalendarPlus },
+  { id: "share", label: ui.home.share, icon: MonitorUp },
 ] as const;
 
 export function MeetingHome() {
@@ -115,7 +116,7 @@ export function MeetingHome() {
       return;
     }
     if (id === "share") {
-      void start("屏幕共享");
+      void start(ui.home.shareTitle);
       return;
     }
     void start();
@@ -124,12 +125,12 @@ export function MeetingHome() {
   return (
     <div className="flex h-dvh bg-white text-[#1a1a1a]" style={{ fontFamily: '"PingFang SC","Microsoft YaHei","Noto Sans SC",Inter,sans-serif' }}>
       <aside className="flex w-[76px] shrink-0 flex-col items-center border-r border-[#ececec] bg-[#f3f3f4] py-4">
-        <div className="mb-6 flex h-9 w-9 items-center justify-center rounded-lg bg-[#006fff] text-sm font-semibold text-white">会</div>
-        <RailItem active label="会议" />
-        <RailItem label="录制" />
+        <div className="mb-6 flex h-9 w-9 items-center justify-center rounded-lg bg-[#006fff] text-xs font-semibold text-white">{ui.home.logo}</div>
+        <RailItem active label={ui.home.railMeetings} />
+        <RailItem label={ui.home.railRecordings} />
         <a href="/tasks" className="mt-1 flex w-full flex-col items-center gap-1 py-3 text-[11px] text-[#8a8a8a] hover:text-[#006fff]">
           <span className="h-5 w-5 rounded-md border border-current" />
-          任务
+          {ui.home.railTasks}
         </a>
       </aside>
 
@@ -165,18 +166,18 @@ export function MeetingHome() {
           </div>
 
           <p className="mt-8 text-center text-xs text-[#8d8d8d]">
-            个人会议号 {personal?.joinCode ?? "TB-ROOM"}
+            {ui.home.personalCode} {personal?.joinCode ?? "TB-ROOM"}
             <button type="button" className="ml-3 text-[#006fff]" onClick={() => personal && router.push(`/meetings/${personal.id}`)}>
-              进入
+              {ui.home.enter}
             </button>
           </p>
 
           <section className="mt-10">
-            <h2 className="text-sm text-[#666]">会议列表</h2>
+            <h2 className="text-sm text-[#666]">{ui.home.list}</h2>
             {error && !joinOpen ? <p className="mt-3 text-sm text-[#e34d59]">{error}</p> : null}
             <ul className="mt-3 divide-y divide-[#f0f0f0] border-t border-[#f0f0f0]">
               {recent.length === 0 ? (
-                <li className="py-10 text-sm text-[#8d8d8d]">还没有预定会议。快速会议不会出现在这里。</li>
+                <li className="py-10 text-sm text-[#8d8d8d]">{ui.home.empty}</li>
               ) : (
                 recent.map((meeting) => (
                   <li key={meeting.id} className="flex items-center gap-6 py-4">
@@ -186,7 +187,7 @@ export function MeetingHome() {
                       <span className="mt-1 block text-xs text-[#8d8d8d]">{meeting.joinCode}</span>
                     </span>
                     <button type="button" className="text-sm text-[#006fff]" onClick={() => router.push(`/meetings/${meeting.id}`)}>
-                      进入
+                      {ui.home.enter}
                     </button>
                   </li>
                 ))
@@ -199,7 +200,7 @@ export function MeetingHome() {
                 void fetch("/api/meetings/incident", { method: "POST" }).then(() => router.push("/meetings/demo"));
               }}
             >
-              2:17 演练
+              {ui.home.incident}
             </button>
           </section>
         </main>
@@ -207,19 +208,19 @@ export function MeetingHome() {
 
       <Dialog open={joinOpen} onOpenChange={setJoinOpen}>
         <DialogContent>
-          <DialogTitle>加入会议</DialogTitle>
-          <DialogDescription>输入会议号和你在会中显示的名称。</DialogDescription>
+          <DialogTitle>{ui.home.joinTitle}</DialogTitle>
+          <DialogDescription>{ui.home.joinDesc}</DialogDescription>
           <form onSubmit={(event) => void join(event)} className="mt-4 space-y-3">
-            <Input id="join-code" name="code" value={code} onChange={(event) => setCode(event.target.value)} placeholder="会议号" aria-label="会议号" />
-            <Input id="join-name" name="display-name" value={displayName} onChange={(event) => setDisplayName(event.target.value)} aria-label="您的名称" />
+            <Input id="join-code" name="code" value={code} onChange={(event) => setCode(event.target.value)} placeholder={ui.home.joinCode} aria-label={ui.home.joinCode} />
+            <Input id="join-name" name="display-name" value={displayName} onChange={(event) => setDisplayName(event.target.value)} aria-label={ui.home.joinName} />
             <label className="flex items-center gap-2 text-sm text-[#444]">
-              <input type="checkbox" name="mic" defaultChecked /> 自动连接音频
+              <input type="checkbox" name="mic" defaultChecked /> {ui.home.autoAudio}
             </label>
             <label className="flex items-center gap-2 text-sm text-[#444]">
-              <input type="checkbox" name="camera" /> 入会开启摄像头
+              <input type="checkbox" name="camera" /> {ui.home.cameraOn}
             </label>
             <Button type="submit" disabled={busy || !code.trim()} className="w-full bg-[#006fff] hover:bg-[#0057d6]">
-              加入会议
+              {ui.home.joinButton}
             </Button>
             {error ? <p className="text-sm text-[#e34d59]">{error}</p> : null}
           </form>
@@ -228,13 +229,13 @@ export function MeetingHome() {
 
       <Dialog open={scheduleOpen} onOpenChange={setScheduleOpen}>
         <DialogContent>
-          <DialogTitle>预定会议</DialogTitle>
-          <DialogDescription>填写主题和时间。预定后会出现在会议列表。</DialogDescription>
+          <DialogTitle>{ui.home.scheduleTitle}</DialogTitle>
+          <DialogDescription>{ui.home.scheduleDesc}</DialogDescription>
           <form onSubmit={(event) => void schedule(event)} className="mt-4 space-y-3">
-            <Input id="schedule-title" name="title" value={title} onChange={(event) => setTitle(event.target.value)} aria-label="会议主题" />
-            <Input id="schedule-when" name="when" type="datetime-local" value={when} onChange={(event) => setWhen(event.target.value)} aria-label="开始时间" />
+            <Input id="schedule-title" name="title" value={title} onChange={(event) => setTitle(event.target.value)} aria-label={ui.home.scheduleTopic} />
+            <Input id="schedule-when" name="when" type="datetime-local" value={when} onChange={(event) => setWhen(event.target.value)} aria-label={ui.home.scheduleWhen} />
             <Button type="submit" disabled={busy} className="w-full bg-[#006fff] hover:bg-[#0057d6]">
-              预定
+              {ui.home.scheduleButton}
             </Button>
           </form>
         </DialogContent>

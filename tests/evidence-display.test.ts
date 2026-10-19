@@ -31,7 +31,7 @@ describe("evidence display layer", () => {
     expect(sourceName("https://api.npmjs.org/downloads/point/last-week/x")).toBe("npm");
     expect(sourceName("https://registry.npmjs.org/x")).toBe("npm");
     expect(sourceName("https://pypi.org/pypi/x/json")).toBe("PyPI");
-    expect(sourceName("https://pypistats.org/api/packages/x/recent")).toBe("pypistats（第三方）");
+    expect(sourceName("https://pypistats.org/api/packages/x/recent")).toBe("pypistats (third party)");
     expect(sourceName("https://evil.example/")).toBeNull();
   });
 
@@ -44,9 +44,9 @@ describe("evidence display layer", () => {
   });
 
   it("maps failures: 403/429 → 限流, 404 → 未找到, timeout → 超时", () => {
-    expect(failureLabel({ error: "GitHub returned 403.", errorCode: errorCodeFor("GitHub returned 403.") })).toBe("拉取失败：限流");
-    expect(failureLabel({ error: "npm returned 429." })).toBe("拉取失败：限流");
-    expect(failureLabel({ error: "x", errorCode: errorCodeFor("GitHub returned 404.") })).toBe("拉取失败：未找到");
+    expect(failureLabel({ error: "GitHub returned 403.", errorCode: errorCodeFor("GitHub returned 403.") })).toBe("Fetch failed: rate limited");
+    expect(failureLabel({ error: "npm returned 429." })).toBe("Fetch failed: rate limited");
+    expect(failureLabel({ error: "x", errorCode: errorCodeFor("GitHub returned 404.") })).toBe("Fetch failed: not found");
     expect(errorCodeFor("The operation was aborted due to timeout")).toBe("timeout");
     expect(errorCodeFor("Response had no downloads number.")).toBe("parse");
     expect(errorCodeFor("fetch failed")).toBe("network");
@@ -106,7 +106,7 @@ describe("evidence display layer", () => {
     }
     const meeting = getStore().get("e10");
     const selection = meeting.workstreams.find((w) => w.kind === "selection");
-    expect(selection?.summary).toMatch(/^待人确认/);
+    expect(selection?.summary).toMatch(/^Awaiting a human/);
     expect(meeting.decisions).toHaveLength(0);
   });
   it("spec-rev2 O1: pypistats is a distinct third-party source and a failure is not backfilled", async () => {
@@ -121,10 +121,10 @@ describe("evidence display layer", () => {
     const week = report.options.flatMap((o) => o.metrics).filter((m) => m.name === "PyPI downloads last week");
     expect(week.length).toBeGreaterThan(0);
     for (const m of week) {
-      expect(sourceName(m.sourceUrl)).toBe("pypistats（第三方）");
+      expect(sourceName(m.sourceUrl)).toBe("pypistats (third party)");
       expect(m.value).toBeNull();
       expect(metricValueText(m)).toBeNull();
-      expect(failureLabel(m)).toBe("拉取失败：限流");
+      expect(failureLabel(m)).toBe("Fetch failed: rate limited");
     }
   });
 });

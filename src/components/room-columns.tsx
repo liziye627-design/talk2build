@@ -1,3 +1,4 @@
+import { ui } from "@/lib/ui-text";
 import type { ReactNode } from "react";
 import { ASSISTANT_NAME } from "@/lib/branding";
 import { Badge } from "@/components/ui/badge";
@@ -62,7 +63,7 @@ export function PoolColumn({ state }: { state: MeetingState }) {
       <div data-testid="timeline">
         <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted">Timeline</p>
         {state.timeline.length === 0 ? (
-          <p className="mt-2 text-sm text-muted">时间线还是空的。{ASSISTANT_NAME}正在听。</p>
+          <p className="mt-2 text-sm text-muted">{ui.room.timelineEmpty(ASSISTANT_NAME)}</p>
         ) : (
           <ol className="mt-3 space-y-3 border-l border-line pl-4">
             {state.timeline.map((event) => (
@@ -113,10 +114,10 @@ export function PoolColumn({ state }: { state: MeetingState }) {
       </div>
 
       <div data-testid="chatter" className="rounded-xl border border-dashed border-line bg-sunken p-3">
-        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted">Chatter · 水聊</p>
+        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted">Chatter · {ui.room.chatterTitle}</p>
         <p className="mt-1 text-xs text-muted">Parked. Not in the requirement pool.</p>
         {state.chatter.length === 0 ? (
-          <p className="mt-2 text-sm text-muted">闲聊留在这一栏，{ASSISTANT_NAME}不会插话。</p>
+          <p className="mt-2 text-sm text-muted">{ui.room.chatterEmpty(ASSISTANT_NAME)}</p>
         ) : (
           <ul className="mt-2 space-y-2">
             {state.chatter.map((item) => (

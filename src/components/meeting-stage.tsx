@@ -1,5 +1,6 @@
 "use client";
 
+import { ui } from "@/lib/ui-text";
 import { ASSISTANT_NAME } from "@/lib/branding";
 import { useCallback, useEffect, useRef, useState, type FormEvent, type RefObject } from "react";
 import Link from "next/link";
@@ -279,18 +280,18 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
       <header className="flex h-12 shrink-0 items-center justify-between bg-[#1c1c1c] px-4 text-[13px]">
         <div className="flex min-w-0 items-center gap-3">
           <Link href="/" className="text-white/70 hover:text-white">
-            会议
+            {ui.stage.home}
           </Link>
           <h1 className="truncate">{meeting.title}</h1>
           <span className="text-white/50">{meeting.joinCode}</span>
-          {recordingLocal ? <span className="text-[11px] text-[#ff5a5a]">录制中</span> : null}
+          {recordingLocal ? <span className="text-[11px] text-[#ff5a5a]">{ui.stage.recording}</span> : null}
         </div>
         <div className="flex items-center gap-1 rounded-md bg-white/10 p-0.5">
           <button type="button" className={`flex items-center gap-1 rounded px-2 py-1 text-xs ${view === "grid" ? "bg-white/15" : "text-white/70"}`} onClick={() => setView("grid")}>
-            <LayoutGrid className="h-3.5 w-3.5" /> 宫格
+            <LayoutGrid className="h-3.5 w-3.5" /> {ui.stage.grid}
           </button>
           <button type="button" className={`flex items-center gap-1 rounded px-2 py-1 text-xs ${view === "speaker" ? "bg-white/15" : "text-white/70"}`} onClick={() => setView("speaker")}>
-            <RectangleHorizontal className="h-3.5 w-3.5" /> 演讲者
+            <RectangleHorizontal className="h-3.5 w-3.5" /> {ui.stage.speaker}
           </button>
         </div>
       </header>
@@ -299,7 +300,7 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
         <section className="relative flex min-h-0 flex-col">
           <div className={`grid min-h-0 flex-1 gap-1.5 p-2 ${view === "speaker" ? "grid-cols-[minmax(0,1fr)_148px] pb-16" : `${gridCols(meeting.participants.length)} auto-rows-fr pb-16`}`} data-testid="video-grid" style={drawer !== "none" ? { marginRight: "18rem" } : undefined}>
             {meeting.participants.length === 0 ? (
-              <p className="text-sm text-white/50">还没有人入会。</p>
+              <p className="text-sm text-white/50">{ui.stage.nobody}</p>
             ) : view === "speaker" ? (
               <>
                 <Tile
@@ -332,10 +333,10 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
               ))
             )}
           </div>
-          {sharing ? <p className="pointer-events-none absolute left-3 top-3 rounded bg-[#006fff] px-2 py-1 text-xs">正在共享屏幕</p> : null}
+          {sharing ? <p className="pointer-events-none absolute left-3 top-3 rounded bg-[#006fff] px-2 py-1 text-xs">{ui.stage.sharing}</p> : null}
           <div style={drawer !== "none" ? { right: "19rem" } : undefined} className="pointer-events-none absolute inset-x-4 bottom-3 max-h-14 overflow-hidden rounded bg-black/55 px-3 py-2" data-testid="captions">
             {captions.length === 0 ? (
-              <p className="text-sm text-white/50">字幕会显示在这里。</p>
+              <p className="text-sm text-white/50">{ui.stage.captionsEmpty}</p>
             ) : (
               captions.map((line) => (
                 <p key={line.id} className="text-sm leading-6">
@@ -348,9 +349,9 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
           {drawer !== "none" ? (
             <aside className="absolute bottom-0 right-0 top-0 flex w-72 flex-col border-l border-white/10 bg-[#f7f7f7] text-[#1a1a1a]">
               <header className="flex items-center justify-between border-b border-[#eee] px-4 py-3 text-sm">
-                {drawer === "members" ? `成员 (${meeting.participants.length})` : "聊天"}
+                {drawer === "members" ? ui.stage.members(meeting.participants.length) : ui.stage.chat}
                 <button type="button" className="text-[#888]" onClick={() => setDrawer("none")}>
-                  关闭
+                  {ui.stage.close}
                 </button>
               </header>
               {drawer === "members" ? (
@@ -365,7 +366,7 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
               ) : (
                 <div className="flex min-h-0 flex-1 flex-col">
                   <div className="flex-1 space-y-2 overflow-y-auto px-3 py-3">
-                    {meeting.transcript.length === 0 ? <p className="text-sm text-[#888]">还没有消息。</p> : null}
+                    {meeting.transcript.length === 0 ? <p className="text-sm text-[#888]">{ui.stage.noMessages}</p> : null}
                     {meeting.transcript.map((line) => (
                       <p key={line.id} className="text-sm leading-6">
                         <span className="mr-2 text-xs text-[#006fff]">{displaySpeaker(line.speaker)}</span>
@@ -375,8 +376,8 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
                   </div>
                   <form onSubmit={(event) => void submit(event)} className="border-t border-[#eee] p-3">
                     <label className="mb-2 block text-xs text-[#888]">
-                      发言人
-                      <select id="speaking-as" name="speaker" aria-label="发言人" value={speaker} onChange={(event) => setSpeaker(event.target.value)} className="ml-2 bg-transparent text-sm text-[#222]">
+                      {ui.stage.speakingAs}
+                      <select id="speaking-as" name="speaker" aria-label={ui.stage.speakingAs} value={speaker} onChange={(event) => setSpeaker(event.target.value)} className="ml-2 bg-transparent text-sm text-[#222]">
                         {meeting.participants.filter((person) => person.kind !== "ai").map((person) => (
                           <option key={person.label} value={person.label}>
                             {person.name}
@@ -385,9 +386,9 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
                       </select>
                     </label>
                     <div className="flex gap-2">
-                      <input id="meeting-composer" name="utterance" value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="说点什么，或 @架构师 @质疑者" className="h-9 min-w-0 flex-1 rounded border border-[#e5e5e5] px-3 text-sm text-[#222] outline-none" data-testid="meeting-composer" />
+                      <input id="meeting-composer" name="utterance" value={draft} onChange={(event) => setDraft(event.target.value)} placeholder={ui.stage.composer} className="h-9 min-w-0 flex-1 rounded border border-[#e5e5e5] px-3 text-sm text-[#222] outline-none" data-testid="meeting-composer" />
                       <button type="submit" className="rounded bg-[#006fff] px-3 text-sm text-white" disabled={busy || !draft.trim()}>
-                        发送
+                        {ui.stage.send}
                       </button>
                     </div>
                   </form>
@@ -403,21 +404,21 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
             <p className="text-sm">{ASSISTANT_NAME}</p>
             <div className="flex gap-2 text-xs">
               <button type="button" className={panel === "agent" ? "text-[#006fff]" : "text-[#888]"} onClick={() => setPanel("agent")}>
-                工作
+                {ui.stage.tabWork}
               </button>
               <button type="button" className={panel === "pool" ? "text-[#006fff]" : "text-[#888]"} onClick={() => setPanel("pool")}>
-                记录
+                {ui.stage.tabNotes}
               </button>
               {meeting.scenario === "incident" ? (
                 <button type="button" className={panel === "diff" ? "text-[#006fff]" : "text-[#888]"} onClick={() => setPanel("diff")}>
-                  变更
+                  {ui.stage.tabChanges}
                 </button>
               ) : null}
             </div>
           </header>
           {meeting.status === "ended" && meeting.summary ? (
             <div className="max-h-40 overflow-auto border-b border-[#eee] px-4 py-3" data-testid="minutes">
-              <p className="text-xs text-[#888]">会议纪要</p>
+              <p className="text-xs text-[#888]">{ui.stage.minutes}</p>
               <pre className="mt-2 whitespace-pre-wrap text-xs leading-5 text-[#444]">{meeting.summary.minutes}</pre>
             </div>
           ) : null}
@@ -431,7 +432,7 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
                 meeting={meeting}
                 onCancel={(jobId) => {
                   void cancelMeetingJob(meeting.id, jobId).then((result) => {
-                    if (result.error) setError("无权取消：会话已失效，请刷新页面后重试。");
+                    if (result.error) setError(ui.stage.cancelDenied);
                     return refresh();
                   });
                 }}
@@ -444,38 +445,38 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
 
       <footer className="relative flex h-[76px] shrink-0 items-center bg-[#242424] px-3">
         <div className="flex flex-1 items-end justify-center gap-1">
-          <BarButton icon={listening ? Mic : MicOff} label={listening ? "静音" : "解除静音"} active={listening} onClick={toggleMic} />
-          <BarButton icon={cameraOn ? Video : VideoOff} label={cameraOn ? "关闭视频" : "开启视频"} active={cameraOn} onClick={() => void toggleCamera()} />
-          <BarButton icon={MonitorUp} label="共享屏幕" active={sharing} onClick={() => setSharing((value) => !value)} />
+          <BarButton icon={listening ? Mic : MicOff} label={listening ? ui.stage.mute : ui.stage.unmute} active={listening} onClick={toggleMic} />
+          <BarButton icon={cameraOn ? Video : VideoOff} label={cameraOn ? ui.stage.stopVideo : ui.stage.startVideo} active={cameraOn} onClick={() => void toggleCamera()} />
+          <BarButton icon={MonitorUp} label={ui.stage.shareScreen} active={sharing} onClick={() => setSharing((value) => !value)} />
           <BarButton
             icon={UserPlus}
-            label="邀请"
+            label={ui.stage.invite}
             onClick={() => {
               void navigator.clipboard?.writeText(meeting.joinCode);
-              setError(`会议号 ${meeting.joinCode} 已复制`);
+              setError(ui.stage.inviteCopied(meeting.joinCode));
             }}
           />
-          <BarButton icon={Users} label="成员" active={drawer === "members"} onClick={() => toggleDrawer("members")} />
-          <BarButton icon={MessageSquare} label="聊天" active={drawer === "chat"} onClick={() => toggleDrawer("chat")} />
-          <BarButton icon={Square} label="录制" active={recordingLocal} onClick={() => setRecordingLocal((value) => !value)} />
-          <BarButton icon={MoreHorizontal} label="更多" active={moreOpen} onClick={() => setMoreOpen((value) => !value)} />
+          <BarButton icon={Users} label={ui.stage.participants} active={drawer === "members"} onClick={() => toggleDrawer("members")} />
+          <BarButton icon={MessageSquare} label={ui.stage.chat} active={drawer === "chat"} onClick={() => toggleDrawer("chat")} />
+          <BarButton icon={Square} label={ui.stage.record} active={recordingLocal} onClick={() => setRecordingLocal((value) => !value)} />
+          <BarButton icon={MoreHorizontal} label={ui.stage.more} active={moreOpen} onClick={() => setMoreOpen((value) => !value)} />
         </div>
         <button type="button" className="absolute right-4 rounded bg-[#f24747] px-4 py-1.5 text-sm text-white disabled:opacity-40" onClick={() => void endMeeting()} disabled={busy || meeting.status === "ended"} data-testid="end-meeting">
-          结束
+          {ui.stage.end}
         </button>
         <div className={`absolute bottom-[80px] left-1/2 z-10 w-56 -translate-x-1/2 rounded-md bg-white py-1 text-sm text-[#222] shadow-float ${moreOpen ? "" : "hidden"}`}>
             {meeting.scenario === "incident" ? (
               <button type="button" className="block w-full px-3 py-2 text-left hover:bg-[#f5f5f5]" onClick={() => void playScript()} disabled={playing || meeting.status === "ended"} data-testid="play-demo">
-                播放 2:17 演练
+                {ui.stage.playIncident}
               </button>
             ) : (
               <button type="button" className="block w-full px-3 py-2 text-left hover:bg-[#f5f5f5]" onClick={() => void playPlanning()} disabled={playing || meeting.status === "ended"} data-testid="play-session">
-                播放一段工作会话
+                {ui.stage.playSession}
               </button>
             )}
             {meeting.threadId ? (
               <button type="button" className="block w-full px-3 py-2 text-left hover:bg-[#f5f5f5]" onClick={() => router.push("/tasks")}>
-                打开任务台
+                {ui.stage.openDesk}
               </button>
             ) : null}
           </div>
@@ -483,8 +484,8 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
 
       <Dialog open={askInstead} onOpenChange={setAskInstead}>
         <DialogContent>
-          <DialogTitle>已回退</DialogTitle>
-          <DialogDescription>你想改成什么？</DialogDescription>
+          <DialogTitle>{ui.stage.rolledBack}</DialogTitle>
+          <DialogDescription>{ui.stage.rolledBackAsk}</DialogDescription>
         </DialogContent>
       </Dialog>
 
@@ -563,17 +564,17 @@ function AgentCards({ meeting, onCancel, onDebate }: { meeting: MeetingState; on
         </p>
       ) : (
         <p className="text-sm leading-6 text-muted">
-          你们开会时，{ASSISTANT_NAME}会同步整理计划、设计、检查和参考资料，不需要单独下指令。
+          {ui.stage.idle(ASSISTANT_NAME)}
         </p>
       )}
       {meeting.pending ? (
         <p className="rounded-lg bg-warn-soft px-4 py-3 text-sm leading-6 text-warn" data-testid="confirm-wait">
-          等待口头确认：{meeting.pending.prompt}
+          {ui.stage.waitingYes}{meeting.pending.prompt}
         </p>
       ) : null}
       {meeting.chatter.length > 0 ? (
         <p className="text-xs leading-5 text-muted" data-testid="parked-chatter">
-          已搁置，不进入计划：{meeting.chatter.at(-1)?.text}
+          {ui.stage.parked}{meeting.chatter.at(-1)?.text}
         </p>
       ) : null}
       <SeatPanel meeting={meeting} />
@@ -582,12 +583,7 @@ function AgentCards({ meeting, onCancel, onDebate }: { meeting: MeetingState; on
   );
 }
 
-const AI_STATUS_LABEL: Record<"online" | "offline" | "speaking" | "demo", string> = {
-  online: "在线",
-  offline: "离线",
-  speaking: "发言中",
-  demo: "演示",
-};
+const AI_STATUS_LABEL: Record<"online" | "offline" | "speaking" | "demo", string> = ui.stage.aiStatus;
 
 /** Q7: columns follow the head count (AI seats included) instead of a fixed two. */
 function gridCols(count: number) {
@@ -597,8 +593,8 @@ function gridCols(count: number) {
   return "grid-cols-4";
 }
 
-const DEBATE_STATUS: Record<string, string> = { running: "进行中", concluded: "已结束", interrupted: "已中断", failed: "失败" };
-const CONCLUSION_STATUS: Record<string, string> = { pending: "待人确认", confirmed: "已确认", rejected: "已否决", incomplete: "未完成" };
+const DEBATE_STATUS: Record<string, string> = ui.stage.debateStatus;
+const CONCLUSION_STATUS: Record<string, string> = ui.stage.conclusionStatus;
 
 /** F2: seat turns, debates and conclusion cards in the right panel. */
 function SeatPanel({ meeting }: { meeting: MeetingState }) {
@@ -607,22 +603,22 @@ function SeatPanel({ meeting }: { meeting: MeetingState }) {
   const conclusions = meeting.conclusions ?? [];
   const queue = meeting.seatQueue ?? [];
   if (turns.length === 0 && debates.length === 0 && conclusions.length === 0) return null;
-  const label = (id: string) => (id === "architect" ? "AI 架构师" : "AI 质疑者");
+  const label = (id: string) => (id === "architect" ? ui.seats.architect : ui.seats.skeptic);
   return (
     <section className="space-y-2" data-testid="seat-panel">
-      <p className="text-xs text-[#888]">AI 席位</p>
+      <p className="text-xs text-[#888]">{ui.stage.seats}</p>
       {debates.map((debate) => (
         <div key={debate.id} className="rounded-lg border border-[#e9eaeb] p-3 text-xs leading-5" data-testid="seat-debate">
           <p className="font-medium">
-            辩论：{debate.topic} · 第 {debate.round}/{debate.maxRounds} 轮 · {DEBATE_STATUS[debate.status] ?? debate.status}
+            {ui.stage.debate(debate.topic, debate.round, debate.maxRounds, DEBATE_STATUS[debate.status] ?? debate.status)}
           </p>
           {turns
             .filter((turn) => turn.debateId === debate.id)
             .map((turn) => (
               <p key={turn.id} className="mt-1">
-                <span className="text-[#006fff]">{label(turn.seatId)}：</span>
+                <span className="text-[#006fff]">{label(turn.seatId)}{ui.stage.colon}</span>
                 {turn.text}
-                {turn.citations.length > 0 ? <span className="text-[#888]"> （引用：{turn.citations.map((c) => c.label).join("；")}）</span> : null}
+                {turn.citations.length > 0 ? <span className="text-[#888]">{ui.stage.cite(turn.citations.map((c) => c.label).join(ui.stage.listSep))}</span> : null}
               </p>
             ))}
         </div>
@@ -631,23 +627,23 @@ function SeatPanel({ meeting }: { meeting: MeetingState }) {
         .filter((turn) => turn.debateId === null)
         .map((turn) => (
           <p key={turn.id} className="rounded-lg bg-[#fafafa] p-3 text-xs leading-5" data-testid="seat-turn">
-            <span className="text-[#006fff]">{label(turn.seatId)}：</span>
+            <span className="text-[#006fff]">{label(turn.seatId)}{ui.stage.colon}</span>
             {turn.text}
           </p>
         ))}
-      {queue.length > 0 ? <p className="text-xs text-[#888]">排队中：{queue.length} 个请求</p> : null}
+      {queue.length > 0 ? <p className="text-xs text-[#888]">{ui.stage.queued(queue.length)}</p> : null}
       {conclusions.map((card) => (
         <article key={card.id} className="rounded-lg border border-[#006fff]/40 bg-[#f5f9ff] p-3 text-xs leading-5" data-testid="seat-conclusion">
           <p className="font-medium">
-            结论卡 {card.id} · {CONCLUSION_STATUS[card.status] ?? card.status}
+            {ui.stage.conclusionCard(card.id, CONCLUSION_STATUS[card.status] ?? card.status)}
           </p>
-          <p className="mt-1">分支：{card.topic}</p>
-          <p>推荐：{card.recommendation}</p>
-          {card.reasons.length > 0 ? <p>理由：{card.reasons.join("；")}</p> : null}
-          {card.risks.length > 0 ? <p>风险：{card.risks.join("；")}</p> : null}
-          {card.humanDecisions.length > 0 ? <p>需要人决定：{card.humanDecisions.join("；")}</p> : null}
-          {card.citations.length > 0 ? <p className="text-[#888]">引用：{card.citations.map((c) => c.label).join("；")}</p> : null}
-          {card.status === "pending" ? <p className="mt-1 text-[#b26b00]">说 &quot;yes {card.id}&quot; 写入决策记录。</p> : null}
+          <p className="mt-1">{ui.stage.branch}{card.topic}</p>
+          <p>{ui.stage.recommend}{card.recommendation}</p>
+          {card.reasons.length > 0 ? <p>{ui.stage.reasons}{card.reasons.join(ui.stage.listSep)}</p> : null}
+          {card.risks.length > 0 ? <p>{ui.stage.risks}{card.risks.join(ui.stage.listSep)}</p> : null}
+          {card.humanDecisions.length > 0 ? <p>{ui.stage.humanDecides}{card.humanDecisions.join(ui.stage.listSep)}</p> : null}
+          {card.citations.length > 0 ? <p className="text-[#888]">{ui.stage.citations}{card.citations.map((c) => c.label).join(ui.stage.listSep)}</p> : null}
+          {card.status === "pending" ? <p className="mt-1 text-[#b26b00]">{ui.stage.sayYes(card.id)}</p> : null}
         </article>
       ))}
     </section>

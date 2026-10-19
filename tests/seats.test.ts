@@ -62,7 +62,7 @@ describe("seats", () => {
   it("1b unknown seat gets a 'does not exist' reply and no job cards", async () => {
     await prepareAgentWork({ meetingId: M, speaker: "Maya", text: "@产品经理 你怎么看" });
     const state = getStore().get(M);
-    expect(state.transcript.at(-1)?.text).toMatch(/该席位不存在：@产品经理/);
+    expect(state.transcript.at(-1)?.text).toMatch(/No such seat: @产品经理/);
     expect(state.workstreams).toHaveLength(0);
   });
 
@@ -75,8 +75,8 @@ describe("seats", () => {
     const state = getStore().get(M);
     expect(calls).toEqual([]);
     expect(state.seatTurns ?? []).toHaveLength(0);
-    expect(state.transcript.some((line) => line.speaker === "AI 架构师")).toBe(false);
-    expect(state.transcript.at(-1)?.text).toMatch(/当前不可用/);
+    expect(state.transcript.some((line) => line.speaker === "AI Architect")).toBe(false);
+    expect(state.transcript.at(-1)?.text).toMatch(/unavailable \(offline/);
     expect(state.participants.filter((p) => p.kind === "ai").map((p) => p.aiStatus)).toEqual(["offline", "offline"]);
   });
 
@@ -88,7 +88,7 @@ describe("seats", () => {
     const state = getStore().get(M);
     expect(calls).toEqual(["A", "S", "A", "S", "C"]);
     expect((state.seatTurns ?? []).map((t) => t.seatId)).toEqual(["architect", "skeptic", "architect", "skeptic"]);
-    expect(state.transcript.filter((l) => l.kind === "seat").map((l) => l.speaker)).toEqual(["AI 架构师", "AI 质疑者", "AI 架构师", "AI 质疑者"]);
+    expect(state.transcript.filter((l) => l.kind === "seat").map((l) => l.speaker)).toEqual(["AI Architect", "AI Skeptic", "AI Architect", "AI Skeptic"]);
     const card = state.conclusions?.[0];
     expect(card?.status).toBe("pending");
     expect(state.seatDebates?.[0]).toMatchObject({ status: "concluded", conclusionId: card?.id, maxRounds: 2 });
@@ -246,7 +246,7 @@ describe("seats", () => {
     getStore().persist(M);
     await prepareAgentWork({ meetingId: M, speaker: "Maya", text: "@architect @skeptic debate this branch" });
     const after = getStore().get(M);
-    expect(after.transcript.some((l) => ["AI 架构师", "AI 质疑者", "Architect", "Skeptic"].includes(l.speaker))).toBe(false);
+    expect(after.transcript.some((l) => ["AI Architect", "AI Skeptic", "AI 架构师", "AI 质疑者", "Architect", "Skeptic"].includes(l.speaker))).toBe(false);
     const conclusion = after.workstreams.find((w) => w.kind === "conclusion");
     expect(conclusion?.debateGenerated).toBe("evidence");
   });
@@ -268,7 +268,7 @@ describe("seats", () => {
     const after = getStore().get(M);
     const conclusion = after.workstreams.find((w) => w.kind === "conclusion");
     expect(conclusion?.status).toBe("waiting");
-    expect(conclusion?.summary).toMatch(/^待人确认/);
+    expect(conclusion?.summary).toMatch(/^Awaiting a human/);
     expect(after.decisions).toHaveLength(0);
     expect(after.pending).toBeNull();
   });

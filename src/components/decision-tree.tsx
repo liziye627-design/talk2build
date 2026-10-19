@@ -1,3 +1,4 @@
+import { ui } from "@/lib/ui-text";
 import { buildDecisionTree, decisionGoal } from "@/lib/agent/tree";
 import { chartMetric } from "@/lib/evidence/select";
 import { failureLabel, isThirdParty, metricDisplayable, metricValueText, reportOffline, sourceName } from "@/lib/evidence/display";
@@ -14,14 +15,14 @@ function statusVariant(status: Workstream["status"]) {
 
 function EvidenceChart({ report }: { report: EvidenceReport }) {
   const metricName = chartMetric(report);
-  if (!metricName) return <p className="text-xs text-[#888]">没有可对比的数字。</p>;
+  if (!metricName) return <p className="text-xs text-[#888]">{ui.tree.noNumbers}</p>;
   const bars = report.options
     .map((option) => {
       const metric = option.metrics.find((item) => item.name === metricName && item.value != null && metricDisplayable(item));
       return metric && metric.value != null ? { label: option.label, value: metric.value } : null;
     })
     .filter((item): item is { label: string; value: number } => Boolean(item));
-  if (bars.length === 0) return <p className="text-xs text-[#888]">没有可对比的数字。</p>;
+  if (bars.length === 0) return <p className="text-xs text-[#888]">{ui.tree.noNumbers}</p>;
   const max = Math.max(...bars.map((item) => item.value), 1);
   const width = 240;
   const height = 18 + bars.length * 28;
@@ -50,7 +51,7 @@ function EvidenceBody({ report, cachedAt }: { report: EvidenceReport; cachedAt?:
   if (reportOffline(report)) {
     return (
       <p className="mt-3 rounded bg-[#fff4e5] px-2 py-1 text-xs text-[#b26b00]" data-testid="evidence-offline">
-        离线，无数据：所有来源都拉取失败，没有展示任何数字。
+        {ui.tree.offline}
       </p>
     );
   }
@@ -58,7 +59,7 @@ function EvidenceBody({ report, cachedAt }: { report: EvidenceReport; cachedAt?:
     <div className="mt-3">
       {cachedAt ? (
         <p className="text-[11px] text-[#888]" data-testid="evidence-cached">
-          缓存于 {cachedAt}
+          {ui.tree.cachedAt}{cachedAt}
         </p>
       ) : null}
       {report.note ? <p className="text-xs leading-5 text-[#666]">{report.note}</p> : null}
@@ -71,10 +72,10 @@ function EvidenceBody({ report, cachedAt }: { report: EvidenceReport; cachedAt?:
         <table data-testid="evidence-table" className="w-full border-collapse text-left text-[11px]">
           <thead>
             <tr className="text-[#888]">
-              <th className="py-1 pr-2 font-medium">候选</th>
-              <th className="py-1 pr-2 font-medium">指标</th>
-              <th className="py-1 pr-2 font-medium">数值</th>
-              <th className="py-1 font-medium">来源</th>
+              <th className="py-1 pr-2 font-medium">{ui.tree.option}</th>
+              <th className="py-1 pr-2 font-medium">{ui.tree.metric}</th>
+              <th className="py-1 pr-2 font-medium">{ui.tree.value}</th>
+              <th className="py-1 font-medium">{ui.tree.source}</th>
             </tr>
           </thead>
           <tbody>
@@ -89,7 +90,7 @@ function EvidenceBody({ report, cachedAt }: { report: EvidenceReport; cachedAt?:
                         {failureLabel(metric)}
                       </span>
                     ) : (
-                      (metricValueText(metric) ?? "无数据")
+                      (metricValueText(metric) ?? ui.tree.noData)
                     )}
                   </td>
                   <td className="py-1">
@@ -98,7 +99,7 @@ function EvidenceBody({ report, cachedAt }: { report: EvidenceReport; cachedAt?:
                         {sourceName(metric.sourceUrl)}
                       </span>
                     ) : (
-                      <span className="block text-[#666]">{sourceName(metric.sourceUrl) ?? "未知来源"}</span>
+                      <span className="block text-[#666]">{sourceName(metric.sourceUrl) ?? ui.tree.unknownSource}</span>
                     )}
                     <a className="break-all text-[#006fff]" href={metric.sourceUrl} target="_blank" rel="noreferrer">
                       {metric.sourceUrl.replace("https://", "")}
@@ -117,15 +118,15 @@ function EvidenceBody({ report, cachedAt }: { report: EvidenceReport; cachedAt?:
           <li key={`${option.label}-docs`}>
             {option.docsUrl ? (
               <>
-                {option.label} 文档{" "}
+                {option.label} {ui.tree.docs}{" "}
                 <a className="text-[#006fff]" href={option.docsUrl} target="_blank" rel="noreferrer">
                   {option.docsUrl}
                 </a>
-                {option.docsSourceUrl ? <span>（来源 {option.docsSourceUrl}）</span> : null}
+                {option.docsSourceUrl ? <span>{ui.tree.docsFrom(option.docsSourceUrl)}</span> : null}
               </>
             ) : (
               <span>
-                {option.label} 文档：{option.docsError ? `拉取失败（${option.docsError}）` : "未列出"}
+                {ui.tree.docsMissing(option.label, option.docsError)}
               </span>
             )}
           </li>
@@ -140,7 +141,7 @@ function OptionFork({ option }: { option: EvidenceOption }) {
   return (
     <div className="rounded-md border border-[#e5e5e5] bg-white p-2">
       <p className="text-xs font-medium">{option.label}</p>
-      <p className="mt-1 text-[11px] text-[#666]">{stars && failureLabel(stars) ? failureLabel(stars) : stars && metricDisplayable(stars) && stars.value != null ? `${stars.value} stars` : "无数据"}</p>
+      <p className="mt-1 text-[11px] text-[#666]">{stars && failureLabel(stars) ? failureLabel(stars) : stars && metricDisplayable(stars) && stars.value != null ? `${stars.value} stars` : ui.tree.noData}</p>
     </div>
   );
 }
@@ -148,8 +149,8 @@ function OptionFork({ option }: { option: EvidenceOption }) {
 function SelectionBody({ selection }: { selection: TechSelection }) {
   return (
     <div className="mt-2 text-xs leading-5" data-testid="tech-selection">
-      <p className="text-[#b26b00]" data-testid="selection-pending">待人确认：推荐不会自动写入决策记录。</p>
-      <p>置信度 {CONFIDENCE[selection.confidence] ?? selection.confidence}</p>
+      <p className="text-[#b26b00]" data-testid="selection-pending">{ui.tree.selectionPending}</p>
+      <p>{ui.tree.confidence}{CONFIDENCE[selection.confidence] ?? selection.confidence}</p>
       <ul className="mt-1 list-disc pl-4">
         {selection.pros.map((item) => (
           <li key={item}>{item}</li>
@@ -166,7 +167,7 @@ function SelectionBody({ selection }: { selection: TechSelection }) {
         <ul className="mt-1 text-[11px] text-[#888]">
           {selection.sources.map((url) => (
             <li key={url}>
-              来源：{sourceName(url) ?? "未知来源"}{" "}
+              {ui.tree.sourcePrefix}{sourceName(url) ?? ui.tree.unknownSource}{" "}
               <a className="break-all text-[#006fff]" href={url} target="_blank" rel="noreferrer">
                 {url.replace("https://", "")}
               </a>
@@ -174,26 +175,16 @@ function SelectionBody({ selection }: { selection: TechSelection }) {
           ))}
         </ul>
       ) : (
-        <p className="mt-1 text-[11px] text-[#888]">来源：无</p>
+        <p className="mt-1 text-[11px] text-[#888]">{ui.tree.sourceNone}</p>
       )}
     </div>
   );
 }
 
-const CONFIDENCE: Record<string, string> = { low: "低", medium: "中", high: "高" };
-const KIND_LABEL: Record<string, string> = {
-  plan: "计划",
-  design: "设计",
-  verify: "检查",
-  research: "调研",
-  code: "代码",
-  evidence: "证据",
-  selection: "技术选型",
-  review: "需求评审",
-  conclusion: "结论",
-};
-const TITLE_LABEL: Record<string, string> = { Evidence: "证据", "Tech selection": "技术选型", Conclusion: "结论", "Requirement review": "需求评审" };
-const STATUS_TEXT: Record<string, string> = { working: "进行中", ready: "就绪", waiting: "待人确认", cancelled: "已取消" };
+const CONFIDENCE: Record<string, string> = ui.tree.confidenceLevel;
+const KIND_LABEL: Record<string, string> = ui.tree.kind;
+const TITLE_LABEL: Record<string, string> = ui.tree.title;
+const STATUS_TEXT: Record<string, string> = ui.tree.jobStatus;
 
 function JobCard({ stream, onCancel }: { stream: Workstream; onCancel: (jobId: string) => void }) {
   return (
@@ -218,19 +209,19 @@ function JobCard({ stream, onCancel }: { stream: Workstream; onCancel: (jobId: s
         <div className="mt-2 space-y-1 text-xs leading-5" data-testid="conclusion-card">
           {/* S9: deterministic text from the evidence card, not spoken by any AI seat. */}
           <p className="inline-block rounded bg-[#eef3ff] px-1.5 py-0.5 text-[10px] text-[#3a5ccc]" data-testid="generated-from-evidence">
-            基于证据自动生成 · 非 AI 席位发言
+            {ui.tree.generated}
           </p>
           <p>
-            <span className="text-[#666]">方案要点：</span> {stream.debate.architect}
+            <span className="text-[#666]">{ui.tree.proposal}</span> {stream.debate.architect}
           </p>
           <p>
-            <span className="text-[#666]">风险与反例：</span> {stream.debate.skeptic}
+            <span className="text-[#666]">{ui.tree.risksAndCounter}</span> {stream.debate.skeptic}
           </p>
         </div>
       ) : null}
       {stream.status === "working" && stream.jobId ? (
         <button type="button" className="mt-2 text-xs text-[#888]" data-testid="cancel-job" onClick={() => onCancel(stream.jobId!)}>
-          取消
+          {ui.tree.cancel}
         </button>
       ) : null}
     </article>
@@ -250,7 +241,7 @@ export function DecisionTree({
   const evidenceReady = meeting.workstreams.some((item) => item.kind === "evidence" && item.status === "ready");
   return (
     <div data-testid="decision-tree">
-      <p className="text-xs text-[#888]">目标</p>
+      <p className="text-xs text-[#888]">{ui.tree.goal}</p>
       <p className="mt-1 text-sm font-medium leading-6" data-testid="tree-goal">
         {decisionGoal(meeting)}
       </p>
@@ -274,7 +265,7 @@ export function DecisionTree({
       </div>
       {evidenceReady ? (
         <button type="button" className="mt-3 text-xs text-[#006fff]" data-testid="debate-branch" onClick={onDebate}>
-          @架构师 @质疑者 辩论这一支
+          {ui.tree.debateBranch}
         </button>
       ) : null}
     </div>

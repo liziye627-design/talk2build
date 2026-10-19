@@ -1,10 +1,11 @@
+import { ui } from "@/lib/ui-text";
 import type { EvidenceErrorCode, EvidenceMetric, EvidenceReport } from "@/lib/evidence/types";
 
 /**
  * O1 (decided in spec-rev2): pypistats.org is a third-party source, not PyPI itself.
  * Flip this flag to relabel or hide it in one place.
  */
-export const PYPISTATS_LABEL = "pypistats（第三方）";
+export const PYPISTATS_LABEL = ui.evidence.pypistats;
 
 /** E3: data-source name derived from the URL domain. Unknown domains return null (not displayable). */
 export function sourceName(url: string | null | undefined): string | null {
@@ -22,13 +23,7 @@ export function sourceName(url: string | null | undefined): string | null {
   return null;
 }
 
-const CODE_LABEL: Record<EvidenceErrorCode, string> = {
-  timeout: "超时",
-  not_found: "未找到",
-  rate_limited: "限流",
-  network: "网络错误",
-  parse: "解析失败",
-};
+const CODE_LABEL: Record<EvidenceErrorCode, string> = ui.evidence.codes;
 
 /** E4: prefer the structured errorCode; fall back to the error text for older reports. */
 export function failureCode(metric: Pick<EvidenceMetric, "error" | "errorCode">): EvidenceErrorCode | null {
@@ -44,7 +39,7 @@ export function failureCode(metric: Pick<EvidenceMetric, "error" | "errorCode">)
 
 export function failureLabel(metric: Pick<EvidenceMetric, "error" | "errorCode">): string | null {
   const code = failureCode(metric);
-  return code ? `拉取失败：${CODE_LABEL[code]}` : null;
+  return code ? ui.evidence.failed(CODE_LABEL[code]) : null;
 }
 
 /** E3/E4: a number is shown only with no error, a known source, a URL and a fetch time. */

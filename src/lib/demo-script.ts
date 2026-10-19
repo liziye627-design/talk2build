@@ -1,14 +1,15 @@
+import { ui } from "@/lib/ui-text";
 import type { SpeakerId } from "@/lib/types";
 
 export const REPLIES = {
-  event: "已记录：凌晨 2:17，orders API，40% 报错。",
-  correlate: "已关联：Redis 压力比报错早两分钟开始上升。",
-  deploy: "找到了：batch-reconcile v2.3 在晚上 11:40 部署。要我拉取 diff 吗？",
-  diff: "diff 显示连接池从 50 缩到了 20，而且没有设置超时。",
-  decision: "根因已记录。我正在起草修复 PR：回滚连接池、加超时、加连接池耗尽告警。你说一声我就打开它。",
-  todos: "已记录 2 条待办。",
-  pr: "PR 草稿已就绪：改了 3 个文件，测试通过。",
-  interrupt: "已回滚到上一个检查点。你希望换成什么？",
+  event: ui.replies.event,
+  correlate: ui.replies.correlate,
+  deploy: ui.replies.deploy,
+  diff: ui.replies.diff,
+  decision: ui.replies.decision,
+  todos: ui.replies.todos,
+  pr: ui.replies.pr,
+  interrupt: ui.replies.interrupt,
 } as const;
 
 export interface DemoBeat {

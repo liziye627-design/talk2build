@@ -83,7 +83,7 @@ describe("scripted 2:17 AM postmortem", () => {
     expect(state.pullRequest?.status).toBe("draft");
     expect(state.pullRequest?.tests.every((test) => test.passed)).toBe(true);
     expect(state.progress.length).toBeGreaterThanOrEqual(2);
-    expect(state.transcript.some((line) => line.speaker === "Alexa" && line.text.includes("测试通过"))).toBe(true);
+    expect(state.transcript.some((line) => line.speaker === "Alexa" && line.text.includes("tests pass"))).toBe(true);
   });
 
   it("rolls the last checkpoint back on stop and on 不对", async () => {
@@ -94,10 +94,10 @@ describe("scripted 2:17 AM postmortem", () => {
 
     const stopped = await say("B", "stop");
     expect(stopped.status).toBe(200);
-    expect(stopped.body.reply).toMatch(/检查点/);
+    expect(stopped.body.reply).toMatch(/last checkpoint/);
     expect(stopped.body.state.timeline).toHaveLength(1);
     expect(stopped.body.state.requirements).toHaveLength(0);
-    expect(stopped.body.state.transcript.at(-1)?.text).toMatch(/你希望换成什么/);
+    expect(stopped.body.state.transcript.at(-1)?.text).toMatch(/What should it be instead/);
 
     await say("A", "记一下 a second note");
     const chinese = await say("A", "不对");

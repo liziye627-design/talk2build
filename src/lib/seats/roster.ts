@@ -1,3 +1,4 @@
+import { ui } from "@/lib/ui-text";
 import type { Participant, SeatId } from "@/lib/types";
 
 export interface SeatDefinition {
@@ -7,8 +8,8 @@ export interface SeatDefinition {
 }
 
 export const SEATS: SeatDefinition[] = [
-  { id: "architect", label: "AI 架构师", aliases: ["架构师", "architect"] },
-  { id: "skeptic", label: "AI 质疑者", aliases: ["质疑者", "skeptic", "challenger"] },
+  { id: "architect", label: ui.seats.architect, aliases: ["架构师", "architect"] },
+  { id: "skeptic", label: ui.seats.skeptic, aliases: ["质疑者", "skeptic", "challenger"] },
 ];
 
 export function seatLabel(id: SeatId) {
@@ -29,11 +30,11 @@ const DEBATE_WORD = /(辩一下|辩论|debate)/i;
 /** S2/S3: full-width or half-width @, case-insensitive, Chinese and English aliases. */
 /** B5: "@AI 架构师" / "@ AI质疑者" (display names, with or without the space) collapse to the bare alias. */
 function normalizeSeatNames(text: string) {
-  return text.replace(/[@＠]\s*AI\s*(架构师|质疑者)/gi, "@$1");
+  return text.replace(/[@＠]\s*AI\s*(架构师|质疑者|architect|skeptic)/gi, "@$1");
 }
 
 /** Names that actually parse, for the "seat does not exist" hint. */
-export const MENTION_HINT = "@AI 架构师 / @架构师 / @architect、@AI 质疑者 / @质疑者 / @skeptic";
+export const MENTION_HINT = ui.seats.hint;
 
 export function parseMentions(input: string): MentionParse {
   const text = normalizeSeatNames(input);
@@ -54,7 +55,7 @@ export function parseMentions(input: string): MentionParse {
     const hit = rest.match(DEBATE_WORD);
     if (hit && hit.index != null) {
       const after = rest.slice(hit.index + hit[0].length).replace(/^[\s:：,，]+/, "").trim();
-      debateTopic = after || rest.replace(DEBATE_WORD, "").trim() || "当前分支";
+      debateTopic = after || rest.replace(DEBATE_WORD, "").trim() || ui.seats.defaultTopic;
     }
   }
   return { seats, unknown, debateTopic, rest };

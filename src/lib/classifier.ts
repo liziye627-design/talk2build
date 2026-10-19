@@ -1,3 +1,4 @@
+import { ui } from "@/lib/ui-text";
 import { REPLIES } from "@/lib/demo-script";
 import { claimNeedsEvidence } from "@/lib/evidence/claim";
 import { FIX_REQUIREMENTS, REDIS_METRICS, ROOT_CAUSE } from "@/lib/incident";
@@ -158,7 +159,7 @@ export function classifyUtterance(input: ClassifyInput): Classification {
           ? { name: "confirm_ask", arguments: { action: "clear", conclusionId: pending.payload?.conclusionId } }
           : { name: "confirm_ask", arguments: { action: "clear" } },
       ],
-      "好的，不做了。你希望换成什么？",
+      ui.replies.rejected,
     );
   }
 
@@ -168,7 +169,7 @@ export function classifyUtterance(input: ClassifyInput): Classification {
         "confirm",
         "Create issues from the action items",
         [...heard(speaker, text, "confirm"), { name: "create_issues", arguments: pending.payload ?? {} }],
-        "已根据待办创建 issue。",
+        ui.replies.issues,
       );
     }
     if (pending.action === "scaffold_code") {
@@ -180,7 +181,7 @@ export function classifyUtterance(input: ClassifyInput): Classification {
           { name: "scaffold_code", arguments: pending.payload ?? {} },
           { name: "run_tests", arguments: {} },
         ],
-        "脚手架已写入，测试已运行。",
+        ui.replies.scaffolded,
       );
     }
     if (pending.action === "confirm_conclusion") {
@@ -195,7 +196,7 @@ export function classifyUtterance(input: ClassifyInput): Classification {
             arguments: { speaker, text: payload.recommendation ?? pending.prompt, conclusionId: payload.conclusionId },
           },
         ],
-        "结论已写入决策记录。",
+        ui.replies.conclusionRecorded,
       );
     }
     if (pending.action === "run_tests") {
@@ -203,7 +204,7 @@ export function classifyUtterance(input: ClassifyInput): Classification {
         "confirm",
         "Run the workspace tests",
         [...heard(speaker, text, "confirm"), { name: "run_tests", arguments: pending.payload ?? {} }],
-        "测试已运行。",
+        ui.replies.testsRan,
       );
     }
     if (pending.action === "diff_fetch") {
@@ -229,7 +230,7 @@ export function classifyUtterance(input: ClassifyInput): Classification {
       );
     }
     if (pending.action !== "write_doc") {
-      return plan("confirm", "Confirmation did not match a known action", heard(speaker, text, "confirm"), "我还需要一个更明确的确认。", 0.4);
+      return plan("confirm", "Confirmation did not match a known action", heard(speaker, text, "confirm"), ui.replies.needClearer, 0.4);
     }
     const payload = pending.payload ?? {};
     return plan(
@@ -245,7 +246,7 @@ export function classifyUtterance(input: ClassifyInput): Classification {
           },
         },
       ],
-      "已写入文档。",
+      ui.replies.docWritten,
     );
   }
 
@@ -266,7 +267,7 @@ export function classifyUtterance(input: ClassifyInput): Classification {
       ...items.map((item) => ({ name: "todo_add", arguments: { speaker, text: item } })),
     ];
     const reply =
-      items.length === 2 ? REPLIES.todos : items.length === 1 ? "已记录 1 条待办。" : `已记录 ${items.length} 条待办。`;
+      items.length === 2 ? REPLIES.todos : ui.replies.todosN(items.length);
     return plan("todo", items.join("; "), tools, reply);
   }
 
@@ -423,7 +424,7 @@ export function classifyUtterance(input: ClassifyInput): Classification {
       "requirement",
       item,
       [...heard(speaker, text, "requirement"), { name: "requirement_add", arguments: { speaker, text: item } }],
-      `已记录需求：${item}`,
+      ui.replies.requirement(item),
       0.74,
     );
   }
@@ -450,7 +451,7 @@ export function classifyUtterance(input: ClassifyInput): Classification {
     "requirement",
     item,
     [...heard(speaker, text, "requirement"), { name: "requirement_add", arguments: { speaker, text: item } }],
-    `已记录需求：${item}`,
+    ui.replies.requirement(item),
     0.6,
   );
 }

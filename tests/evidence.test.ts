@@ -161,7 +161,7 @@ describe("architect and skeptic", () => {
     }
     const meeting = getStore().get("debate");
     // S9/S1 (T2B-002): seats are "AI 架构师/AI 质疑者" marked kind "ai", not English "Architect/Skeptic".
-    expect(meeting.participants.map((person) => person.label)).toEqual(expect.arrayContaining(["AI 架构师", "AI 质疑者"]));
+    expect(meeting.participants.map((person) => person.label)).toEqual(expect.arrayContaining(["AI Architect", "AI Skeptic"]));
     expect(meeting.participants.filter((person) => person.kind === "ai")).toHaveLength(2);
     const conclusion = meeting.workstreams.find((item) => item.kind === "conclusion");
     // S9: the deterministic text is an evidence annotation waiting for a human, not a ready conclusion.
@@ -173,7 +173,7 @@ describe("architect and skeptic", () => {
     if (!report) throw new Error("missing evidence");
     assertNoInventedNumbers(conclusion?.debate?.conclusion || "", report);
     // S9: no seat speaks the deterministic text (was: a "Skeptic" transcript line existed).
-    expect(meeting.transcript.some((line) => line.speaker === "Skeptic" || line.speaker === "AI 质疑者" || line.speaker === "Architect" || line.speaker === "AI 架构师")).toBe(false);
+    expect(meeting.transcript.some((line) => line.speaker === "Skeptic" || line.speaker === "AI Skeptic" || line.speaker === "AI 质疑者" || line.speaker === "Architect" || line.speaker === "AI 架构师")).toBe(false);
     expect(meeting.decisions).toHaveLength(0);
     expect(meeting.workstreams.some((item) => item.kind === "design")).toBe(false);
   });
