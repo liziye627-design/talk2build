@@ -91,7 +91,7 @@ describe("B7/B6 through the real HTTP utterance entry (no model key)", () => {
     const { id } = await newMeeting();
     const body = await say(id, ZH_DEMO);
     expect(body.kind).not.toBe("chatter");
-    expect(body.reply).toMatch(/Requirement logged/);
+    expect(body.reply).toMatch(/^On it: /);
     const working = body.state.workstreams.filter((w) => w.jobId && w.status === "working");
     expect(working.map((w) => w.kind)).toEqual(expect.arrayContaining(["plan", "research"]));
     const res = await fetch(`${server.url}/api/meetings/${id}/jobs/${encodeURIComponent(working[0]!.jobId!)}/cancel`, { method: "POST" });

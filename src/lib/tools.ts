@@ -579,6 +579,13 @@ export function executeTool(name: string, args: Record<string, unknown> = {}): T
       ensureWorkspace(state.workspaceId, state.title);
       const result = runNodeTests(workspaceDir(state.workspaceId));
       if (state.pullRequest) store.setPullRequest(id, { ...store.get(id).pullRequest!, tests: result.tests });
+      const codeCard = store.get(id).workstreams.find((item) => item.kind === "code" && item.status === "ready");
+      if (codeCard && result.tests.length > 0) {
+        const passing = result.tests.filter((test) => test.passed).length;
+        codeCard.progress = `node --test: ${passing}/${result.tests.length} passing`;
+        codeCard.updatedAt = new Date().toISOString();
+        store.persist(id);
+      }
       store.clearPending(id);
       return finish(id, name, {
         ok: true,

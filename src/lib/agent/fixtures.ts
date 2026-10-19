@@ -50,7 +50,7 @@ function gameJamExtraction(meetingId: string, speaker: string, text: string): Ex
   }
   if (/plain canvas/i.test(text) && /zero dependencies/i.test(text)) {
     return base(speaker, meetingId, [], {
-      decisions: [{ text: "Plain canvas, zero dependencies. Phaser leads on stars, but one level does not need an engine.", speaker }],
+      decisions: [{ text: "Plain canvas, zero dependencies: one level does not need an engine.", speaker }],
     });
   }
   if (/feasible on a phone/i.test(text)) {

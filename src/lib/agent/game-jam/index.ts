@@ -100,7 +100,7 @@ export function gameSpec(state: MeetingState) {
   const decisions = state.decisions.map((item) => `- ${item.text} (${item.speaker})`);
   const todos = state.todos.map((item) => `- [ ] ${item.text}${item.speaker ? ` (${item.speaker})` : ""}`);
   const cards = state.workstreams
-    .filter((item) => item.status === "ready" && item.kind !== "code")
+    .filter((item) => item.status === "ready" && item.kind !== "code" && item.kind !== "review")
     .map((item) => `- ${item.title}: ${item.summary}${item.artifactPath ? ` (${item.artifactPath})` : ""}`)
     .reverse();
   return [

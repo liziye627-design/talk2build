@@ -194,6 +194,11 @@ const en = {
     docWritten: "Written to the doc.",
     todosN: (n: number) => (n === 1 ? "Logged 1 action item." : `Logged ${n} action items.`),
     requirement: (item: string) => `Requirement logged: ${item}`,
+    and: " and ",
+    onIt: (titles: string) => `On it: ${titles}.`,
+    waitingYes: (title: string) => `I'll scaffold the ${title} as soon as someone says yes.`,
+    evidence: (labels: string) => `Pulling live GitHub and npm numbers for ${labels}.`,
+    decisionNoted: (text: string) => `Decision noted: ${text}`,
   },
 };
 
@@ -388,6 +393,11 @@ const zh: UiText = {
     docWritten: "已写入文档。",
     todosN: (n: number) => `已记录 ${n} 条待办。`,
     requirement: (item: string) => `已记录需求：${item}`,
+    and: " 和 ",
+    onIt: (titles: string) => `马上处理：${titles}。`,
+    waitingYes: (title: string) => `有人说"确认"后，我就开始搭 ${title}。`,
+    evidence: (labels: string) => `正在实时拉取 ${labels} 的 GitHub 和 npm 数据。`,
+    decisionNoted: (text: string) => `已记录决定：${text}`,
   },
 };
 

@@ -2,7 +2,7 @@ import { getAlexaClient } from "@/alexa/client";
 import { REPLIES } from "@/lib/demo-script";
 import { enqueue } from "@/lib/mutex";
 import { getStore } from "@/lib/meeting-store";
-import { prepareAgentWork } from "@/lib/agent/dispatch";
+import { agentAck, prepareAgentWork } from "@/lib/agent/dispatch";
 import { restoreSeatState, keepSeatState, stopSeats } from "@/lib/seats/orchestrator";
 import { planTurn, summarizeMeeting } from "@/lib/planner";
 import { providerPublicConfig } from "@/lib/llm";
@@ -199,7 +199,10 @@ async function runTurn(request: Request) {
     const progressCall = [...trace].reverse().find((entry) => entry.tool === "report_progress");
     if (progressCall) progress = progressCall.summary;
 
-    if (planned.classification.reply) {
+    // A general-meeting line the classifier only logged as a requirement waits for the agent:
+    // if the agent picked up work, Alexa+ says what it picked up instead of echoing the line back.
+    const deferReply = runAgent && planned.classification.kind === "requirement";
+    if (planned.classification.reply && !deferReply) {
       store.ingest(meetingId, {
         speaker: "Alexa",
         text: planned.classification.reply,
@@ -217,9 +220,11 @@ async function runTurn(request: Request) {
       }
     }
 
+    let reply = planned.classification.reply;
     if (runAgent) {
       try {
-        await prepareAgentWork({ meetingId, speaker: speaker.trim(), text });
+        const picked = await prepareAgentWork({ meetingId, speaker: speaker.trim(), text });
+        if (deferReply) reply = agentAck(picked) ?? reply;
       } catch (error) {
         store.addTrace(meetingId, {
           tool: "agent_extract",
@@ -229,8 +234,10 @@ async function runTurn(request: Request) {
       }
     }
 
+    if (deferReply && reply) store.ingest(meetingId, { speaker: "Alexa", text: reply, kind: "reply" });
+
     return json({
-      reply: planned.classification.reply,
+      reply,
       silent: planned.classification.silent,
       progress,
       kind: planned.classification.kind,

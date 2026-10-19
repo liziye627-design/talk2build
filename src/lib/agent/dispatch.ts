@@ -9,6 +9,7 @@ import { memoryFor } from "@/lib/work-tools";
 import { getStore } from "@/lib/meeting-store";
 import { routeSeatUtterance, syncSeatParticipants } from "@/lib/seats/orchestrator";
 import { executeTool } from "@/lib/tools";
+import { parseTargets } from "@/lib/evidence/claim";
 import { isDeferral } from "@/lib/classifier";
 import type { MeetingState, WorkKind, WorkStatus, Workstream } from "@/lib/types";
 
@@ -231,25 +232,48 @@ function meetingContext(state: MeetingState) {
   return [`Title: ${state.title}`, "Decisions in this meeting:", decisions, "Memory:", ...memory.decisions, ...memory.preferences].join("\n");
 }
 
-export async function prepareAgentWork(input: { meetingId: string; speaker: string; text: string }) {
+export interface AgentWorkResult {
+  started: AgentJob[];
+  waiting: AgentJob[];
+  decisions: string[];
+}
+
+/** One spoken line for what the agent just picked up. Null when it picked up nothing. */
+export function agentAck(result: AgentWorkResult | null | undefined): string | null {
+  if (!result) return null;
+  const evidence = result.started.find((item) => item.kind === "evidence");
+  if (evidence) {
+    const labels = parseTargets(evidence.brief).map((target) => target.label);
+    return ui.replies.evidence(labels.join(ui.replies.and));
+  }
+  const waiting = result.waiting[0];
+  if (waiting) return ui.replies.waitingYes(waiting.title);
+  if (result.started.length) return ui.replies.onIt(result.started.map((item) => ui.tree.title[item.title] ?? item.title).join(", "));
+  if (result.decisions[0]) return ui.replies.decisionNoted(result.decisions[0]);
+  return null;
+}
+
+export async function prepareAgentWork(input: { meetingId: string; speaker: string; text: string }): Promise<AgentWorkResult | null> {
   const store = getStore();
   const state = store.ensure(input.meetingId);
-  if (state.scenario !== "general") return;
+  if (state.scenario !== "general") return null;
+  const result: AgentWorkResult = { started: [], waiting: [], decisions: [] };
   // F2: @seat / debate requests go to the seat orchestrator before normal extraction.
   const seat = routeSeatUtterance(input);
   if (seat.offlineDebate) publishDebate(input.meetingId, input.speaker);
-  if (seat.handled) return;
+  if (seat.handled) return null;
   const extraction = await extractMeetingTurn({
     meetingId: input.meetingId,
     speaker: input.speaker,
     text: input.text,
     context: meetingContext(state),
   });
-  if (extraction.chatter) return;
+  if (extraction.chatter) return null;
   // B10: evaluated once per utterance; a deferral drops code / confirm-gated jobs from any extraction source.
   const deferred = isDeferral(input.text);
   for (const decision of extraction.decisions) {
     executeTool("decision_record", { meetingId: input.meetingId, speaker: decision.speaker, text: decision.text });
+    result.decisions.push(decision.text);
   }
   for (const item of extraction.actionItems) {
     executeTool("todo_add", { meetingId: input.meetingId, speaker: item.speaker, text: item.text });
@@ -282,6 +306,7 @@ export async function prepareAgentWork(input: { meetingId: string; speaker: stri
         jobId: item.id,
         speaker: item.speaker,
       });
+      result.waiting.push(item);
       continue;
     }
     setJobStatus(input.meetingId, {
@@ -294,12 +319,14 @@ export async function prepareAgentWork(input: { meetingId: string; speaker: stri
       speaker: item.speaker,
     });
     getJobRunner().start(item);
+    result.started.push(item);
   }
   store.addTrace(input.meetingId, {
     tool: "agent_extract",
     ok: true,
     summary: `${resolveAgentBackend()} · ${agentModelLabel()} · ${extraction.jobs.length} jobs`,
   });
+  return result;
 }
 
 function rememberSuggestion(meetingId: string, text: string) {

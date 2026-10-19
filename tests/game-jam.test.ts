@@ -76,6 +76,7 @@ describe("game-jam session over HTTP", () => {
     const code = after.workstreams.find((item) => item.kind === "code");
     expect(code?.status).toBe("ready");
     expect(code?.artifactPath).toBe(GAME_PAGE_PATH);
+    expect(code?.progress).toMatch(/^node --test: (\d+)\/\1 passing$/);
     expect(after.pullRequest?.tests.length).toBeGreaterThanOrEqual(7);
     expect(after.pullRequest?.tests.every((test) => test.passed)).toBe(true);
 
@@ -99,4 +100,16 @@ describe("game-jam session over HTTP", () => {
     const run = spawnSync(process.execPath, ["--test"], { cwd: workspaceDir(after.workspaceId), encoding: "utf8" });
     expect(run.status).toBe(0);
   }, 30_000);
+});
+
+describe("agent acknowledgement", () => {
+  it("says what the agent picked up instead of echoing the line", async () => {
+    const { agentAck } = await import("@/lib/agent/dispatch");
+    const job = (kind: string, title: string, brief = "x") => ({ id: kind, meetingId: "m", kind, title, brief, speaker: "Maya", needsConfirm: kind === "code" }) as never;
+    expect(agentAck({ started: [job("design", "Game architecture")], waiting: [], decisions: [] })).toBe("On it: Game architecture.");
+    expect(agentAck({ started: [job("evidence", "Evidence", "Phaser or PixiJS, which is more popular?")], waiting: [], decisions: [] })).toBe("Pulling live GitHub and npm numbers for Phaser and PixiJS.");
+    expect(agentAck({ started: [], waiting: [job("code", "Space Cat Courier prototype")], decisions: [] })).toMatch(/says yes/);
+    expect(agentAck({ started: [], waiting: [], decisions: ["Plain canvas."] })).toBe("Decision noted: Plain canvas.");
+    expect(agentAck(null)).toBeNull();
+  });
 });
