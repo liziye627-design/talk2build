@@ -328,7 +328,7 @@ export async function routeHttp(request: Request): Promise<Response> {
   if (workspaceFile && request.method === "GET") {
     const { handleWorkspaceFile } = await import("@/server/product");
     const url = new URL(request.url);
-    return handleWorkspaceFile(decodeURIComponent(workspaceFile[1] || ""), url.searchParams.get("path") || "");
+    return handleWorkspaceFile(decodeURIComponent(workspaceFile[1] || ""), url.searchParams.get("path") || "", url.searchParams.get("raw") === "1");
   }
   if (pathname === "/.well-known/oauth-protected-resource") return handleProtectedResource(request);
   if (pathname === "/.well-known/oauth-authorization-server") return handleAuthorizationServer(request);

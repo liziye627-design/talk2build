@@ -347,10 +347,35 @@ export function handleMeetingEnd(id: string) {
   });
 }
 
-export function handleWorkspaceFile(workspaceId: string, relativePath: string) {
+const RAW_TYPES: Record<string, string> = {
+  svg: "image/svg+xml; charset=utf-8",
+  html: "text/html; charset=utf-8",
+  md: "text/plain; charset=utf-8",
+  mjs: "text/plain; charset=utf-8",
+  diff: "text/plain; charset=utf-8",
+};
+
+/**
+ * raw=1 serves the file itself so cards can show SVG artifacts and the prototype can be played.
+ * Workspace files are agent output, so raw responses are sandboxed: the CSP sandbox gives the page
+ * an opaque origin (no cookies, no same-origin API access) while still letting the game's script run.
+ */
+export function handleWorkspaceFile(workspaceId: string, relativePath: string, raw = false) {
   if (!relativePath) return json({ error: "Path is required." }, 400);
   try {
     const contents = readWorkspaceFile(workspaceId, relativePath);
+    if (raw) {
+      const ext = relativePath.split(".").pop()?.toLowerCase() ?? "";
+      return new Response(contents, {
+        status: 200,
+        headers: {
+          "content-type": RAW_TYPES[ext] ?? "text/plain; charset=utf-8",
+          "content-security-policy": "sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:",
+          "x-content-type-options": "nosniff",
+          "cache-control": "no-store",
+        },
+      });
+    }
     return json({ path: relativePath, contents });
   } catch (error) {
     return json({ error: error instanceof Error ? error.message : "Could not read the file." }, 400);

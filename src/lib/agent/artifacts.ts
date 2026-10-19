@@ -4,6 +4,7 @@ import { ensureWorkspace } from "@/lib/db";
 import { getStore } from "@/lib/meeting-store";
 import { memoryFor } from "@/lib/work-tools";
 import { writeWorkspaceFile } from "@/lib/workspace";
+import { GAME_ARTIFACTS, gameArchitectureSvg, gameFeasibility, gameScreenSvg, isGameJamMeeting, isGameJamText } from "@/lib/agent/game-jam";
 
 export interface DraftedArtifact {
   path: string;
@@ -37,6 +38,8 @@ function stripUnknownUrls(body: string, allowed: string) {
 }
 
 function artifactPath(job: AgentJob) {
+  const game = GAME_ARTIFACTS[job.title];
+  if (game) return game.path;
   if (job.kind === "plan") return "docs/plan.md";
   if (job.kind === "verify") return "docs/feasibility.md";
   if (job.kind === "research") return "docs/research.md";
@@ -48,6 +51,16 @@ function artifactPath(job: AgentJob) {
 
 function templateArtifact(job: AgentJob): DraftedArtifact {
   const path = artifactPath(job);
+  if (job.title === "Game architecture") {
+    return { path, summary: GAME_ARTIFACTS[job.title]!.summary, body: gameArchitectureSvg(job.speaker) };
+  }
+  if (job.title === "Game screen wireframe") {
+    return { path, summary: GAME_ARTIFACTS[job.title]!.summary, body: gameScreenSvg(job.speaker) };
+  }
+  if (job.kind === "verify" && (isGameJamText(job.brief) || isGameJamMeeting(getStore().get(job.meetingId)))) {
+    const feasibility = gameFeasibility(job.speaker, job.brief);
+    return { path, ...feasibility };
+  }
   if (job.title === "Settings wireframe") {
     return {
       path,

@@ -31,8 +31,41 @@ function base(speaker: string, meetingId: string, jobs: AgentJob[], extra: Parti
   };
 }
 
+/** Recorded extractions for the Space Cat Courier game-jam session (demo v2). */
+function gameJamExtraction(meetingId: string, speaker: string, text: string): Extraction | null {
+  if (/goal for this meeting/i.test(text) && /space cat courier/i.test(text)) {
+    return base(speaker, meetingId, [job(meetingId, speaker, "plan", "Plan", text)], {
+      decisions: [{ text: "Build Space Cat Courier, a tiny browser game, before the pizza arrives.", speaker }],
+      actionItems: [
+        { text: "Ship one playable level.", speaker },
+        { text: "Add a high score.", speaker },
+      ],
+    });
+  }
+  if (/game loop/i.test(text) && /canvas/i.test(text)) {
+    return base(speaker, meetingId, [job(meetingId, speaker, "design", "Game architecture", text)]);
+  }
+  if (/wireframe the game screen/i.test(text)) {
+    return base(speaker, meetingId, [job(meetingId, speaker, "design", "Game screen wireframe", text)]);
+  }
+  if (/plain canvas/i.test(text) && /zero dependencies/i.test(text)) {
+    return base(speaker, meetingId, [], {
+      decisions: [{ text: "Plain canvas, zero dependencies. Phaser leads on stars, but one level does not need an engine.", speaker }],
+    });
+  }
+  if (/feasible on a phone/i.test(text)) {
+    return base(speaker, meetingId, [job(meetingId, speaker, "verify", "Feasibility", text)]);
+  }
+  if (/scaffold the prototype/i.test(text)) {
+    return base(speaker, meetingId, [job(meetingId, speaker, "code", "Space Cat Courier prototype", text, true)]);
+  }
+  return null;
+}
+
 /** Recorded extractions for the billing-export working session. */
 export function recordedExtraction(meetingId: string, speaker: string, text: string): Extraction | null {
+  const game = gameJamExtraction(meetingId, speaker, text);
+  if (game) return game;
   if (/goal for this meeting/i.test(text)) {
     return base(speaker, meetingId, [job(meetingId, speaker, "plan", "Plan", text)], {
       decisions: [{ text: "Ship the billing export as a nightly job.", speaker }],

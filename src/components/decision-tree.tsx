@@ -186,7 +186,8 @@ const KIND_LABEL: Record<string, string> = ui.tree.kind;
 const TITLE_LABEL: Record<string, string> = ui.tree.title;
 const STATUS_TEXT: Record<string, string> = ui.tree.jobStatus;
 
-function JobCard({ stream, onCancel }: { stream: Workstream; onCancel: (jobId: string) => void }) {
+function JobCard({ stream, onCancel, workspaceId }: { stream: Workstream; onCancel: (jobId: string) => void; workspaceId: string }) {
+  const raw = stream.artifactPath ? `/api/workspaces/${encodeURIComponent(workspaceId)}/file?path=${encodeURIComponent(stream.artifactPath)}&raw=1` : null;
   return (
     <article className="rounded-xl border border-[#e9eaeb] bg-[#fafafa] p-3" data-testid="workstream">
       <div className="flex items-center justify-between gap-2">
@@ -201,6 +202,15 @@ function JobCard({ stream, onCancel }: { stream: Workstream; onCancel: (jobId: s
         <p className="mt-1 text-xs text-[#006fff]" data-testid="job-progress">
           {stream.progress}
         </p>
+      ) : null}
+      {raw && stream.status === "ready" && stream.artifactPath?.endsWith(".svg") ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={raw} alt={stream.title} className="mt-2 w-full rounded-lg border border-[#e5e5e5]" data-testid="artifact-preview" />
+      ) : null}
+      {raw && stream.status === "ready" && stream.artifactPath?.endsWith(".html") ? (
+        <a href={raw} target="_blank" rel="noreferrer" className="mt-2 inline-block rounded bg-[#006fff] px-2.5 py-1 text-xs text-white" data-testid="play-prototype">
+          ▶ {ui.tree.play}
+        </a>
       ) : null}
       {stream.artifactPath ? <p className="mt-2 font-mono text-[10px] text-[#888]">{stream.artifactPath}</p> : null}
       {stream.evidence ? <EvidenceBody report={stream.evidence} cachedAt={stream.evidenceCachedAt} /> : null}
@@ -253,11 +263,11 @@ export function DecisionTree({
               {branch.layout === "fork" && branch.id !== "evidence" ? (
                 <div className="grid grid-cols-2 gap-2">
                   {branch.items.map((item) => (
-                    <JobCard key={item.id} stream={item} onCancel={onCancel} />
+                    <JobCard key={item.id} stream={item} onCancel={onCancel} workspaceId={meeting.workspaceId} />
                   ))}
                 </div>
               ) : (
-                branch.items.map((item) => <JobCard key={item.id} stream={item} onCancel={onCancel} />)
+                branch.items.map((item) => <JobCard key={item.id} stream={item} onCancel={onCancel} workspaceId={meeting.workspaceId} />)
               )}
             </div>
           </section>

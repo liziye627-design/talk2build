@@ -1,3 +1,4 @@
+import { GAME_PAGE_PATH, gameJamFiles, isGameJamMeeting } from "@/lib/agent/game-jam";
 import { spawnSync } from "node:child_process";
 import { classifyUtterance } from "@/lib/classifier";
 import { addArtifact, ensureWorkspace, listMeetings, nid } from "@/lib/db";
@@ -489,7 +490,12 @@ export function executeTool(name: string, args: Record<string, unknown> = {}): T
       const prompt = textOf(args.prompt);
       const files =
         supplied ??
-        (incidentMeeting(id) && !prompt ? FIX_FILES.map((file) => ({ ...file })) : moduleFromPrompt(prompt || "workspace task"));
+        (incidentMeeting(id) && !prompt
+          ? FIX_FILES.map((file) => ({ ...file }))
+          : !incidentMeeting(id) && isGameJamMeeting(store.get(id))
+            ? gameJamFiles(store.get(id))
+            : moduleFromPrompt(prompt || "workspace task"));
+      const gameJam = !incidentMeeting(id) && !supplied && isGameJamMeeting(store.get(id));
       store.setScaffold(id, files);
       for (const file of files) writeTracked(id, args, file.path, file.contents, file.path, "code");
       if (!incidentMeeting(id)) {
@@ -517,9 +523,11 @@ export function executeTool(name: string, args: Record<string, unknown> = {}): T
         : streams.find((item) => item.kind === "code" && (item.status === "waiting" || item.status === "working"));
       if (waiting) {
         waiting.status = "ready";
-        waiting.summary = `Scaffolded ${files.length} files.`;
+        waiting.summary = gameJam
+          ? `Spec written from the meeting, prototype scaffolded from the template: ${files.length} files.`
+          : `Scaffolded ${files.length} files.`;
         waiting.progress = "Saved";
-        waiting.artifactPath = "docs/patch.diff";
+        waiting.artifactPath = gameJam ? GAME_PAGE_PATH : "docs/patch.diff";
         waiting.updatedAt = new Date().toISOString();
         store.persist(id);
       }

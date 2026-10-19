@@ -11,6 +11,8 @@ const CATALOG: Array<PackageTarget & { keys: string[] }> = [
   { keys: ["httpx"], label: "httpx", github: { owner: "encode", repo: "httpx" }, pypi: "httpx" },
   { keys: ["postgres", "postgresql"], label: "PostgreSQL", github: { owner: "postgres", repo: "postgres" } },
   { keys: ["redis"], label: "Redis", github: { owner: "redis", repo: "redis" } },
+  { keys: ["phaser"], label: "Phaser", github: { owner: "phaserjs", repo: "phaser" }, npm: "phaser" },
+  { keys: ["pixijs", "pixi.js", "pixi"], label: "PixiJS", github: { owner: "pixijs", repo: "pixijs" }, npm: "pixi.js" },
 ];
 
 export function questionKind(text: string): EvidenceQuestion {

@@ -93,6 +93,7 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [recordingLocal, setRecordingLocal] = useState(false);
+  const [pinGallery, setPinGallery] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const stopPlay = useRef(false);
   const recognition = useRef<SpeechRecognition | null>(null);
@@ -116,12 +117,12 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
 
   const revealedDiff = useRef(false);
   useEffect(() => {
-    if (revealedDiff.current) return;
+    if (revealedDiff.current || meeting?.scenario !== "incident") return;
     if (meeting?.incidentDiff || meeting?.pullRequest) {
       revealedDiff.current = true;
       setPanel("diff");
     }
-  }, [meeting?.incidentDiff, meeting?.pullRequest]);
+  }, [meeting?.incidentDiff, meeting?.pullRequest, meeting?.scenario]);
 
   async function say(text: string, who = speaker) {
     const response = await fetch(`/api/meetings/${meetingId}/utterance`, {
@@ -268,6 +269,7 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
   }
 
   const captions = meeting.transcript.slice(-2);
+  const showcase = pinGallery || view === "speaker" ? null : sharedArtifact(meeting);
   const speakingLabel = meeting.transcript.at(-1)?.speaker;
   const stageFont = { fontFamily: '"PingFang SC","Microsoft YaHei","Noto Sans SC",Inter,sans-serif' } as const;
 
@@ -287,20 +289,40 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
           {recordingLocal ? <span className="text-[11px] text-[#ff5a5a]">{ui.stage.recording}</span> : null}
         </div>
         <div className="flex items-center gap-1 rounded-md bg-white/10 p-0.5">
-          <button type="button" className={`flex items-center gap-1 rounded px-2 py-1 text-xs ${view === "grid" ? "bg-white/15" : "text-white/70"}`} onClick={() => setView("grid")}>
+          <button type="button" className={`flex items-center gap-1 rounded px-2 py-1 text-xs ${view === "grid" ? "bg-white/15" : "text-white/70"}`} onClick={() => {
+              setView("grid");
+              setPinGallery(true);
+            }}>
             <LayoutGrid className="h-3.5 w-3.5" /> {ui.stage.grid}
           </button>
           <button type="button" className={`flex items-center gap-1 rounded px-2 py-1 text-xs ${view === "speaker" ? "bg-white/15" : "text-white/70"}`} onClick={() => setView("speaker")}>
             <RectangleHorizontal className="h-3.5 w-3.5" /> {ui.stage.speaker}
           </button>
+          {sharedArtifact(meeting) ? (
+            <button type="button" data-testid="view-shared" className={`flex items-center gap-1 rounded px-2 py-1 text-xs ${showcase ? "bg-white/15" : "text-white/70"}`} onClick={() => {
+              setView("grid");
+              setPinGallery(false);
+            }}>
+              <MonitorUp className="h-3.5 w-3.5" /> {ui.stage.shared}
+            </button>
+          ) : null}
         </div>
       </header>
 
       <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px]">
         <section className="relative flex min-h-0 flex-col">
-          <div className={`grid min-h-0 flex-1 gap-1.5 p-2 ${view === "speaker" ? "grid-cols-[minmax(0,1fr)_148px] pb-16" : `${gridCols(meeting.participants.length)} auto-rows-fr pb-16`}`} data-testid="video-grid" style={drawer !== "none" ? { marginRight: "18rem" } : undefined}>
+          <div className={`grid min-h-0 flex-1 gap-1.5 p-2 ${showcase ? "grid-cols-[minmax(0,1fr)_168px] pb-16" : view === "speaker" ? "grid-cols-[minmax(0,1fr)_148px] pb-16" : `${gridCols(meeting.participants.length)} auto-rows-fr pb-16`}`} data-testid="video-grid" style={drawer !== "none" ? { marginRight: "18rem" } : undefined}>
             {meeting.participants.length === 0 ? (
               <p className="text-sm text-white/50">{ui.stage.nobody}</p>
+            ) : showcase ? (
+              <>
+                <SharedStage meeting={meeting} artifact={showcase} />
+                <div className="flex flex-col gap-1.5 overflow-y-auto">
+                  {meeting.participants.map((person) => (
+                    <Tile key={person.id} person={person} speaking={speakingLabel === person.label} self={person.label === speaker} cameraOn={cameraOn} videoRef={videoRef} compact />
+                  ))}
+                </div>
+              </>
             ) : view === "speaker" ? (
               <>
                 <Tile
@@ -466,16 +488,25 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
         </button>
         <div className={`absolute bottom-[80px] left-1/2 z-10 w-56 -translate-x-1/2 rounded-md bg-white py-1 text-sm text-[#222] shadow-float ${moreOpen ? "" : "hidden"}`}>
             {meeting.scenario === "incident" ? (
-              <button type="button" className="block w-full px-3 py-2 text-left hover:bg-[#f5f5f5]" onClick={() => void playScript()} disabled={playing || meeting.status === "ended"} data-testid="play-demo">
+              <button type="button" className="block w-full px-3 py-2 text-left hover:bg-[#f5f5f5]" onClick={() => {
+                setMoreOpen(false);
+                void playScript();
+              }} disabled={playing || meeting.status === "ended"} data-testid="play-demo">
                 {ui.stage.playIncident}
               </button>
             ) : (
-              <button type="button" className="block w-full px-3 py-2 text-left hover:bg-[#f5f5f5]" onClick={() => void playPlanning()} disabled={playing || meeting.status === "ended"} data-testid="play-session">
+              <button type="button" className="block w-full px-3 py-2 text-left hover:bg-[#f5f5f5]" onClick={() => {
+                setMoreOpen(false);
+                void playPlanning();
+              }} disabled={playing || meeting.status === "ended"} data-testid="play-session">
                 {ui.stage.playSession}
               </button>
             )}
             {meeting.threadId ? (
-              <button type="button" className="block w-full px-3 py-2 text-left hover:bg-[#f5f5f5]" onClick={() => router.push("/tasks")}>
+              <button type="button" className="block w-full px-3 py-2 text-left hover:bg-[#f5f5f5]" onClick={() => {
+                setMoreOpen(false);
+                router.push("/tasks");
+              }}>
                 {ui.stage.openDesk}
               </button>
             ) : null}
@@ -525,6 +556,7 @@ function Tile({
   videoRef,
   large = false,
   listening = false,
+  compact = false,
 }: {
   person: MeetingState["participants"][number];
   speaking: boolean;
@@ -533,13 +565,14 @@ function Tile({
   videoRef: RefObject<HTMLVideoElement | null>;
   large?: boolean;
   listening?: boolean;
+  compact?: boolean;
 }) {
   return (
-    <article className={`relative flex items-center justify-center overflow-hidden rounded-md bg-[#2b2b2b] ${large ? "min-h-0" : "min-h-36"} ${person.kind === "ai" ? "bg-[#1f2a3a]" : ""} ${speaking || person.aiStatus === "speaking" ? "ring-2 ring-[#006fff]" : ""}`}>
+    <article className={`relative flex items-center justify-center overflow-hidden rounded-md bg-[#2b2b2b] ${large ? "min-h-0" : compact ? "min-h-[92px] flex-1" : "min-h-36"} ${person.kind === "ai" ? "bg-[#1f2a3a]" : ""} ${speaking || person.aiStatus === "speaking" ? "ring-2 ring-[#006fff]" : ""}`}>
       {self && cameraOn ? (
         <video ref={videoRef} className="absolute inset-0 h-full w-full object-cover" muted playsInline />
       ) : (
-        <div className={`flex items-center justify-center rounded-full bg-[#3a3a3a] text-white ${large ? "h-24 w-24 text-3xl" : "h-14 w-14 text-lg"}`}>{person.name.slice(0, 1)}</div>
+        <div className={`flex items-center justify-center rounded-full text-white ${large ? "h-24 w-24 text-3xl" : compact ? "h-10 w-10 text-base" : "h-14 w-14 text-lg"}`} style={{ background: avatarColor(person.name, person.kind === "ai") }}>{person.kind === "ai" ? "AI" : person.name.slice(0, 1)}</div>
       )}
       {person.kind === "ai" ? (
         <p className="absolute right-2 top-2 rounded bg-[#006fff] px-1.5 py-0.5 text-[10px]" data-testid="seat-badge">
@@ -579,6 +612,7 @@ function AgentCards({ meeting, onCancel, onDebate }: { meeting: MeetingState; on
       ) : null}
       <SeatPanel meeting={meeting} />
       {meeting.workstreams.length === 0 ? null : <DecisionTree meeting={meeting} onCancel={onCancel} onDebate={onDebate} />}
+      {meeting.scenario === "incident" ? <IncidentStatus meeting={meeting} /> : null}
     </div>
   );
 }
@@ -653,4 +687,95 @@ function SeatPanel({ meeting }: { meeting: MeetingState }) {
 /** B3: transcript lines from the assistant are stored as "Alexa"; show the agreed display name. */
 function displaySpeaker(speaker: string) {
   return speaker === "Alexa" ? ASSISTANT_NAME : speaker;
+}
+
+const AVATAR_COLORS = ["#2f6fed", "#d9480f", "#2b8a3e", "#ae3ec9", "#e8590c", "#0c8599", "#c2255c"];
+
+function avatarColor(name: string, ai: boolean) {
+  if (ai) return "#3b5bdb";
+  let hash = 0;
+  for (const ch of name) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+  return AVATAR_COLORS[hash % AVATAR_COLORS.length]!;
+}
+
+interface SharedArtifact {
+  kind: "svg" | "html";
+  title: string;
+  path: string;
+  url: string;
+}
+
+export function rawFileUrl(workspaceId: string, path: string) {
+  return `/api/workspaces/${encodeURIComponent(workspaceId)}/file?path=${encodeURIComponent(path)}&raw=1`;
+}
+
+/** The newest visual artifact the agent produced: the playable prototype first, then the latest SVG. */
+function sharedArtifact(meeting: MeetingState): SharedArtifact | null {
+  if (meeting.scenario !== "general") return null;
+  const ready = meeting.workstreams.filter((item) => item.status === "ready" && item.artifactPath);
+  const game = ready.find((item) => item.artifactPath!.endsWith(".html"));
+  const pick = game ?? ready.find((item) => item.artifactPath!.endsWith(".svg"));
+  if (!pick) return null;
+  return {
+    kind: pick.artifactPath!.endsWith(".html") ? "html" : "svg",
+    title: ui.tree.title[pick.title] ?? pick.title,
+    path: pick.artifactPath!,
+    url: rawFileUrl(meeting.workspaceId, pick.artifactPath!),
+  };
+}
+
+function SharedStage({ meeting, artifact }: { meeting: MeetingState; artifact: SharedArtifact }) {
+  return (
+    <section className="relative flex min-h-0 flex-col overflow-hidden rounded-md bg-[#101522]" data-testid="shared-stage">
+      <header className="flex items-center justify-between px-4 py-2 text-xs text-white/80">
+        <span>
+          <span className="mr-2 rounded bg-[#006fff] px-1.5 py-0.5 text-[10px] text-white">{ui.stage.sharingNow(ASSISTANT_NAME)}</span>
+          {artifact.title}
+        </span>
+        <span className="font-mono text-[10px] text-white/50">
+          {meeting.workspaceId}/{artifact.path}
+        </span>
+      </header>
+      <div className="flex min-h-0 flex-1 items-center justify-center p-3">
+        {artifact.kind === "html" ? (
+          <iframe key={artifact.url} src={artifact.url} title={artifact.title} sandbox="allow-scripts" className="h-full w-full rounded border-0 bg-black" data-testid="shared-prototype" />
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img key={artifact.url} src={artifact.url} alt={artifact.title} className="max-h-full max-w-full rounded-lg object-contain shadow-2xl" data-testid="shared-svg" />
+        )}
+      </div>
+    </section>
+  );
+}
+
+/** Incident rooms keep their detail in Notes and Changes; the Work tab shows where things stand. */
+function IncidentStatus({ meeting }: { meeting: MeetingState }) {
+  const root = meeting.decisions.at(-1);
+  const rows: Array<[string, string]> = [];
+  if (meeting.timeline.length) rows.push([ui.stage.incidentTimeline(meeting.timeline.length), meeting.timeline.at(-1)!.title]);
+  if (meeting.deploy) rows.push([ui.stage.incidentDeploy, `${meeting.deploy.service} ${meeting.deploy.version} · ${meeting.deploy.deployedLabel}`]);
+  if (root) rows.push([ui.stage.incidentRoot, root.text]);
+  if (meeting.todos.length) rows.push([ui.stage.incidentTodos, meeting.todos.map((item) => item.text).join(ui.stage.listSep)]);
+  if (meeting.pullRequest) {
+    const passed = meeting.pullRequest.tests.filter((test) => test.passed).length;
+    rows.push([ui.stage.incidentPr, `${meeting.pullRequest.files.length} files · ${passed}/${meeting.pullRequest.tests.length} tests passing`]);
+  }
+  if (meeting.chatter.length) rows.push([ui.stage.incidentChatter, String(meeting.chatter.length)]);
+  return (
+    <section className="rounded-xl border border-[#e9eaeb] bg-[#fafafa] p-3 text-xs leading-5" data-testid="incident-status">
+      <p className="font-medium text-[#666]">{ui.stage.incidentStatus}</p>
+      {rows.length === 0 ? (
+        <p className="mt-1 text-[#888]">{ui.stage.incidentEmpty}</p>
+      ) : (
+        <dl className="mt-1 space-y-1">
+          {rows.map(([label, value]) => (
+            <div key={label}>
+              <dt className="text-[#888]">{label}</dt>
+              <dd className="text-[#222]">{value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+    </section>
+  );
 }
