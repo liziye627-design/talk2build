@@ -1,10 +1,69 @@
 # Talk2Build
 
-Talk2Build is a meeting app. The home and meeting room follow the Tencent Meeting desktop client: a light lobby with a left rail and four blue actions (`#006fff`), and a dark room with a bottom control bar. The study is in `docs/design/tencent-meeting-reference.md`. Home is join, quick meeting, and schedule, plus the meetings you have already held. Inside a room the agent sits on the right and works while people talk. Each utterance is read by the model, which pulls out intents, decisions, and action items with the speaker attached, then starts plan, design, verify, and research jobs in the background. The cards update while the room keeps going. Scaffolding, tests, and a PR-ready patch still wait for a yes. Chatter stays parked. Ending the meeting writes minutes and a completion report. The task desk is at `/tasks`. The 2:17 AM orders postmortem is **Incident demo**.
+Talk2Build is a meeting room with an agent in it, built for the Alexa+ track of the Amazon Developer Hackathon (`amazonappdev2026`), plus the AWS Builder and Open Source mini challenges. People talk; Alexa+ (a self-hosted MCP server on spec `2025-11-25` over Streamable HTTP, driven by a simulated Alexa+ client in the web app) turns real decisions into plan, design, feasibility and evidence cards while the meeting goes on. Chatter is parked. Anything that writes code waits for a spoken yes. Ending the meeting writes minutes.
 
-This is an Alexa+ track project for the Amazon Developer Hackathon (`amazonappdev2026`), with the AWS Builder and Open Source mini challenges in mind.
+Demo video (2:26): https://youtu.be/oLMys1SccUk. It shows the **pizza game jam**: three people specify Space Cat Courier, a tiny canvas game, and after a "Yes" Talk2Build writes `docs/spec.md` from their decisions, scaffolds a playable prototype from its game-jam template, and runs `node --test` (7/7).
 
-## Run it
+## For judges
+
+About five minutes, no API keys, no account:
+
+```bash
+nvm use 22          # Node.js 22+ is required (node:sqlite)
+npm install
+npm test            # 160+ tests, including an HTTP end-to-end game-jam meeting and the MCP transport
+npm run build
+MCP_DEMO_TOKEN=$(openssl rand -hex 16) TALK2BUILD_SESSION_SECRET=$(openssl rand -hex 24) npm start
+```
+
+Open http://127.0.0.1:43123, click **Start meeting**, then **More → Play the pizza game jam (v2 demo)**. What to look for:
+
+1. A Plan card under Maya's name; architecture and wireframe SVGs inline in their cards and on the shared stage.
+2. "Phaser or PixiJS?" → an Evidence card with live GitHub and npm numbers and their source URLs (needs internet; set `TALK2BUILD_LIVE=0` for tests offline).
+3. "Is the pizza here yet?" is parked, not planned.
+4. The scaffold job waits for "Yes", then shows `node --test: 7/7 passing`. Click **▶ Play the prototype** or watch it on the shared stage.
+5. **End** writes minutes.
+
+To exercise the MCP server directly as an MCP client would (initialize → tools/list → tools/call):
+
+```bash
+TOKEN=...   # the MCP_DEMO_TOKEN you started with
+curl -si http://127.0.0.1:43123/mcp -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+  -H 'accept: application/json, text/event-stream' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"judge","version":"1"}}}'
+# then send tools/list with the returned MCP-Session-Id and MCP-Protocol-Version: 2025-11-25 headers
+```
+
+Honest scope: by default the demo runs in mock mode. Meeting turns are planned deterministically and agent output comes from recorded fixtures, so no model is called. The game comes from a template written ahead of time; the meeting picks it and the spec is generated from the meeting. The evidence numbers and the test run are real. Bedrock is wired in (`src/lib/llm/bedrock.ts`) and runs when you supply AWS credentials; see **Live Amazon Bedrock** below.
+
+## Production start
+
+`npm run dev` is for development only. For demos, recordings and judging, use the production build:
+
+| Variable | Required | Notes |
+| --- | --- | --- |
+| `MCP_DEMO_TOKEN` | yes | Random, at least 16 characters. Bearer token for `/mcp`. `talk2build-demo` is rejected |
+| `TALK2BUILD_SESSION_SECRET` | yes | At least 32 characters. Signs meeting session cookies |
+| `TALK2BUILD_HOME` | no | Data directory (SQLite + workspaces). Default `./data` |
+| `LLM_PROVIDER`, `TALK2BUILD_AGENT` | no | `mock` forces the deterministic path even if AWS keys are set |
+| `TALK2BUILD_JOB_PACE_MS` | no | Delay between card updates (the video used 650) |
+| `MCP_ALLOWED_ORIGINS` | no | Extra comma-separated origins allowed to call `/mcp` |
+
+`npm run build && npm start` serves on port 43123. `NODE_ENV=production` always requires the bearer token on `/mcp`.
+
+## Live Amazon Bedrock
+
+The planner and the in-room agent call Bedrock Converse through `@aws-sdk/client-bedrock-runtime` when credentials are present. Default model `amazon.nova-lite-v1:0` (`BEDROCK_MODEL_ID` overrides). To check one live call with your own account:
+
+```bash
+AWS_REGION=us-east-1 AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=... npm run bedrock:smoke
+```
+
+It prints the plan, model, region and latency, or exits 2 without calling anything when no credentials are set. To run whole meetings on Bedrock, start the server with the same AWS variables and `TALK2BUILD_AGENT=bedrock` (do not set `LLM_PROVIDER=mock`). Enable model access for Nova Lite in the Bedrock console first. A Bedrock failure falls back to the deterministic path and is marked degraded.
+
+The UI follows a desktop meeting-client layout (study in `docs/design/`). The other scripted modes are below.
+
+## Run it (development)
 
 ```bash
 npm install

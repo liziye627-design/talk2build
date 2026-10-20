@@ -18,7 +18,8 @@
     "start": "NODE_OPTIONS='--experimental-sqlite' next start -p 43123 -H 0.0.0.0",
     "lint": "eslint",
     "test": "NODE_OPTIONS='--experimental-sqlite' vitest run",
-    "mcp": "NODE_OPTIONS='--experimental-sqlite' tsx src/server/standalone.ts"
+    "mcp": "NODE_OPTIONS='--experimental-sqlite' tsx src/server/standalone.ts",
+    "bedrock:smoke": "tsx scripts/bedrock-smoke.ts"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.1152.0",

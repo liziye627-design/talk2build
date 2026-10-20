@@ -24,7 +24,7 @@ import { DiffColumn, PoolColumn } from "@/components/room-columns";
 import { DecisionTree, displayPrompt } from "@/components/decision-tree";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { DEMO_SCRIPT } from "@/lib/demo-script";
-import { PLANNING_SCRIPT } from "@/lib/planning-script";
+import { GAME_JAM_SCRIPT, PLANNING_SCRIPT, type PlanningBeat } from "@/lib/planning-script";
 import { isInterrupt } from "@/lib/classifier";
 import type { MeetingState } from "@/lib/types";
 
@@ -154,14 +154,14 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
     }
   }
 
-  async function playPlanning() {
+  async function playPlanning(script: PlanningBeat[] = PLANNING_SCRIPT) {
     if (!meeting || playing) return;
     setPlaying(true);
     stopPlay.current = false;
     setBusy(true);
     setPanel("agent");
     try {
-      for (const beat of PLANNING_SCRIPT) {
+      for (const beat of script) {
         if (stopPlay.current) break;
         await say(beat.text, beat.speaker);
         await wait(350);
@@ -500,6 +500,14 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
                 void playPlanning();
               }} disabled={playing || meeting.status === "ended"} data-testid="play-session">
                 {ui.stage.playSession}
+              </button>
+            )}
+            {meeting.scenario === "incident" ? null : (
+              <button type="button" className="block w-full px-3 py-2 text-left hover:bg-[#f5f5f5]" onClick={() => {
+                setMoreOpen(false);
+                void playPlanning(GAME_JAM_SCRIPT);
+              }} disabled={playing || meeting.status === "ended"} data-testid="play-game-jam">
+                {ui.stage.playGameJam}
               </button>
             )}
             {meeting.threadId ? (
