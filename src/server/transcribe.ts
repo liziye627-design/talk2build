@@ -39,7 +39,7 @@ export async function handleMeetingTranscribe(request: Request, meetingId: strin
 
   let provider;
   try {
-    provider = sttProvider();
+    provider = await sttProvider();
   } catch (error) {
     return json({ error: error instanceof Error ? error.message : "Transcription is not configured.", status: sttStatus() }, 501);
   }

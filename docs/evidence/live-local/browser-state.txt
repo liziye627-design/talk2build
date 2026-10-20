@@ -1,0 +1,7 @@
+Maya | whisper-local | Okay, quick recap before we go. We agreed the sign-up paid
+Maya | whisper-local | ships on Friday. Priya owns the copy, Chris builds the
+Maya | whisper-local | the form and I will check the analytics on Monday to see how many people
+Maya | whisper-local | signed up.
+decisions []
+todos []
+workstreams []

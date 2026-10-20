@@ -9,7 +9,8 @@ import { createInterface } from "node:readline";
  * Speech-to-text providers for live meetings.
  *
  * - "whisper-local": faster-whisper in a local Python worker (scripts/whisper_worker.py). No API key.
- * - "amazon-transcribe": reserved. Not implemented yet; selecting it reports that honestly.
+ * - "amazon-transcribe": Amazon Transcribe streaming via the AWS SDK (src/lib/transcribe/amazon.ts).
+ *   Needs AWS credentials; unverified live (mock-tested only).
  * - "off": the default. The browser can still use the Web Speech API for live captions.
  *
  * Select with TALK2BUILD_STT. TALK2BUILD_WHISPER_PYTHON points at a Python that has faster-whisper.
@@ -45,7 +46,14 @@ export function sttStatus() {
   const id = sttProviderId();
   if (id === "whisper-local") return { provider: id, available: true, note: "Local faster-whisper worker. No API key." };
   if (id === "amazon-transcribe") {
-    return { provider: id, available: false, note: "Amazon Transcribe streaming is planned but not implemented in this build." };
+    const creds = Boolean(process.env.AWS_BEARER_TOKEN_BEDROCK || (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) || process.env.AWS_PROFILE);
+    return {
+      provider: id,
+      available: creds,
+      note: creds
+        ? "Amazon Transcribe streaming (AWS SDK). Not yet verified against live AWS."
+        : "Amazon Transcribe needs AWS credentials (AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY or AWS_PROFILE).",
+    };
   }
   return { provider: id, available: false, note: "Server transcription is off. Set TALK2BUILD_STT=whisper to enable local Whisper." };
 }
@@ -115,6 +123,14 @@ class WhisperWorker {
 
 let worker: WhisperWorker | null = null;
 
+/**
+ * Whisper sometimes loops on a cut-off chunk ("so so so so so", "8 8 8 8"). Collapse any word repeated
+ * four or more times in a row to a single occurrence; normal speech never does that.
+ */
+export function collapseRepeats(text: string) {
+  return text.replace(/\b(\S+?)([,.]?)(?:\s+\1[,.]?){3,}/gi, "$1$2").replace(/\s{2,}/g, " ").trim();
+}
+
 export const whisperLocal: SttProvider = {
   id: "whisper-local",
   async transcribe(audio, input) {
@@ -128,7 +144,7 @@ export const whisperLocal: SttProvider = {
       if (typeof result.error === "string") throw new Error(result.error);
       return {
         provider: "whisper-local",
-        text: String(result.text ?? "").trim(),
+        text: collapseRepeats(String(result.text ?? "")),
         language: typeof result.language === "string" ? result.language : undefined,
         durationSec: typeof result.duration === "number" ? result.duration : undefined,
         segments: Array.isArray(result.segments) ? (result.segments as Transcription["segments"]) : undefined,
@@ -140,8 +156,14 @@ export const whisperLocal: SttProvider = {
   },
 };
 
-export function sttProvider(): SttProvider {
+let amazon: SttProvider | null = null;
+
+export async function sttProvider(): Promise<SttProvider> {
   const id = sttProviderId();
   if (id === "whisper-local") return whisperLocal;
+  if (id === "amazon-transcribe" && sttStatus().available) {
+    if (!amazon) amazon = (await import("@/lib/transcribe/amazon")).createAmazonTranscribe();
+    return amazon;
+  }
   throw new SttUnavailableError(sttStatus().note);
 }

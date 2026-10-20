@@ -1,10 +1,10 @@
 import { keywordExtraction, parseExtraction } from "@/lib/agent/fixtures";
 import type { ExtractInput, Extraction } from "@/lib/agent/types";
 import { completeWithBedrock } from "@/lib/llm/bedrock";
-import { completeWithOpenAI, openAISettings } from "@/lib/llm/openai";
+import { completeWithOpenAI, localSettings, openAISettings } from "@/lib/llm/openai";
 import type { ChatMessage } from "@/lib/llm/types";
 
-export type AgentBackend = "bedrock" | "openai" | "fixture";
+export type AgentBackend = "bedrock" | "openai" | "local" | "fixture";
 
 function envValue(name: string) {
   return process.env[name]?.trim() || "";
@@ -34,6 +34,7 @@ export function resolveAgentBackend(): AgentBackend {
   const forced = (process.env.TALK2BUILD_AGENT || process.env.LLM_PROVIDER || "").toLowerCase();
   if (forced === "mock" || forced === "fixture") return "fixture";
   if (forced === "openai" || forced === "nebius") return "openai";
+  if (forced === "local" || forced === "ollama") return "local";
   const credentials = bedrockCredentialState();
   if (credentials === "ready" && (forced === "bedrock" || !forced)) return "bedrock";
   if (forced === "bedrock" || credentials === "partial") console.warn(skipBedrockMessage());
@@ -45,6 +46,7 @@ export function agentModelLabel() {
   const backend = resolveAgentBackend();
   if (backend === "bedrock") return process.env.BEDROCK_MODEL_ID || "amazon.nova-lite-v1:0";
   if (backend === "openai") return openAISettings().model;
+  if (backend === "local") return localSettings().model;
   return "recorded-fixtures";
 }
 
@@ -58,6 +60,11 @@ const EXTRACT_SYSTEM = [
   "Park side chatter: chatter is the text, jobs is empty.",
   "suggestion is a short reminder only when the context already contains a matching decision. Otherwise null.",
   "Do not invent URLs. Do not invent decisions that are not in the utterance or the context.",
+  "Exact shapes: intents, decisions and actionItems are arrays of { text, speaker }. chatter is a string or null.",
+  "Set chatter only for off-topic small talk; when there is a decision, action item or job, chatter must be null.",
+  "A commitment like 'I will X by Friday' is an actionItem. 'Let's decide/go with X' is a decision.",
+  'Example for Speaker: Ana, Utterance: "Let\'s go with Postgres, and I will set it up by Monday." ->',
+  '{"intents":[],"decisions":[{"text":"Use Postgres","speaker":"Ana"}],"actionItems":[{"text":"Set up Postgres by Monday","speaker":"Ana"}],"jobs":[],"chatter":null,"suggestion":null}',
 ].join(" ");
 
 export function extractionPrompt(input: ExtractInput): ChatMessage {
@@ -74,7 +81,7 @@ export async function extractMeetingTurn(input: ExtractInput, fetchImpl?: typeof
     const raw =
       backend === "bedrock"
         ? await completeWithBedrock(extractionPrompt(input))
-        : await completeWithOpenAI(extractionPrompt(input), openAISettings(), fetchImpl);
+        : await completeWithOpenAI(extractionPrompt(input), backend === "local" ? localSettings() : openAISettings(), fetchImpl);
     return parseExtraction(raw, input.meetingId, input.speaker, input.text);
   } catch {
     return keywordExtraction(input.meetingId, input.speaker, input.text);
@@ -88,13 +95,14 @@ export async function draftWithModel(
   user: string,
   fetchImpl?: typeof fetch,
 ): Promise<{ text: string | null; notice: string | null }> {
-  if (resolveAgentBackend() === "fixture") return { text: null, notice: null };
+  const backend = resolveAgentBackend();
+  if (backend === "fixture") return { text: null, notice: null };
   try {
     const prompt = { system, user };
     const text =
-      resolveAgentBackend() === "bedrock"
+      backend === "bedrock"
         ? await completeWithBedrock(prompt)
-        : await completeWithOpenAI(prompt, openAISettings(), fetchImpl);
+        : await completeWithOpenAI(prompt, backend === "local" ? { ...localSettings(), jsonMode: false } : openAISettings(), fetchImpl);
     return { text, notice: null };
   } catch {
     return { text: null, notice: MODEL_FALLBACK_NOTICE };

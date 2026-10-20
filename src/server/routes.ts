@@ -4,6 +4,7 @@ import { enqueue } from "@/lib/mutex";
 import { getStore } from "@/lib/meeting-store";
 import { agentAck, prepareAgentWork } from "@/lib/agent/dispatch";
 import { restoreSeatState, keepSeatState, stopSeats } from "@/lib/seats/orchestrator";
+import { classifyUtterance } from "@/lib/classifier";
 import { planTurn, summarizeMeeting } from "@/lib/planner";
 import { providerPublicConfig } from "@/lib/llm";
 import type { PlannedTool } from "@/lib/types";
@@ -186,7 +187,25 @@ async function runTurn(request: Request) {
     }
 
     store.checkpoint(meetingId);
-    const failure = await runTools(planned.classification.tools);
+    let failure = await runTools(planned.classification.tools);
+    if (failure && planned.provider !== "mock") {
+      // A live model planned a tool call the server rejected (e.g. missing arguments). Roll back,
+      // then run the deterministic plan for the same line and flag the turn as degraded.
+      store.rollback(meetingId);
+      store.checkpoint(meetingId);
+      planned = {
+        ...planned,
+        degraded: true,
+        classification: classifyUtterance({
+          text,
+          speaker: speaker.trim(),
+          pending: meeting.pending,
+          queue: meeting.confirmQueue,
+          scenario: meeting.scenario,
+        }),
+      };
+      failure = await runTools(planned.classification.tools);
+    }
     if (failure) {
       store.rollback(meetingId);
       return json(

@@ -1,0 +1,5 @@
++10780ms transcribe 200 "Okay, quick recap before we go. We agreed the sign-up paid" (1419 ms whisper)
++12355ms transcribe 200 "ships on Friday. Priya owns the copy, Chris builds the" (438 ms whisper)
+mic off at +13595ms; uploads: [{"at":4104,"bytes":0},{"at":10769,"bytes":0},{"at":12348,"bytes":0}]
++14142ms transcribe 200 "the form and I will check the analytics on Monday to see how many people" (414 ms whisper)
++15633ms transcribe 200 "signed up." (384 ms whisper)

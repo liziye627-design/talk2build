@@ -1,0 +1,6 @@
+decisions [{"speaker": "Chris", "text": "Use a simple static page with a form that posts to our existing mailing list"}, {"speaker": "Priya", "text": "Write copy for bakery newsletter"}]
+todos [{"speaker": "Priya", "text": "Send copy to Chris by Wednesday"}]
+requirements [{"speaker": "Maya", "text": "Our goal today is to launch a weekly newsletter sign-up page for the Bakery by Friday"}, {"speaker": "Chris", "text": "Let's decide to use a simple static page with a form that posts to our existing mailing list"}]
+chatter [{"speaker": "Chris", "text": "By the way, did anyone watch the football game last night?"}]
+workstreams []
+jobs keys ['meeting']

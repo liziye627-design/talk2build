@@ -159,22 +159,31 @@ export function parseExtraction(raw: string, meetingId: string, speaker: string,
       ),
     ].map((item) => ({ ...item, id: `${item.id}-${index}` }));
   });
+  // Small local models sometimes return { "Speaker": "text" } maps or bare strings; accept both.
   const readList = (value: unknown) =>
-    Array.isArray(value)
-      ? value.flatMap((entry) => {
+    (Array.isArray(value)
+      ? value
+      : value && typeof value === "object"
+        ? Object.entries(value as Record<string, unknown>).map(([who, said]) => ({ speaker: who, text: said }))
+        : []
+    ).flatMap((entry: unknown) => {
+          if (typeof entry === "string") return entry.trim() ? [{ text: entry.trim(), speaker }] : [];
           if (!entry || typeof entry !== "object") return [];
           const record = entry as Record<string, unknown>;
           if (typeof record.text !== "string" || !record.text.trim()) return [];
           return [{ text: record.text.trim(), speaker: typeof record.speaker === "string" ? record.speaker : speaker }];
-        })
-      : [];
+        });
+  const decisions = readList(parsed.decisions);
+  const actionItems = readList(parsed.actionItems);
+  // Work beats chatter: a turn with a decision, action item or job is never parked.
+  const hasWork = decisions.length > 0 || actionItems.length > 0 || built.length > 0;
   return {
     speaker,
     intents: readList(parsed.intents).map((item) => ({ kind: "intent", summary: item.text, speaker: item.speaker })),
-    decisions: readList(parsed.decisions),
-    actionItems: readList(parsed.actionItems),
+    decisions,
+    actionItems,
     jobs: built,
-    chatter: typeof parsed.chatter === "string" ? parsed.chatter : null,
+    chatter: !hasWork && typeof parsed.chatter === "string" && parsed.chatter.trim() ? parsed.chatter : null,
     suggestion: typeof parsed.suggestion === "string" ? parsed.suggestion : null,
   };
 }

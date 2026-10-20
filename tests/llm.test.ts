@@ -107,3 +107,35 @@ describe("llm providers", () => {
     expect(plan.reply).toBeNull();
   });
 });
+
+describe("local provider (Ollama / llama.cpp, no key)", () => {
+  afterEach(() => {
+    delete process.env.LLM_PROVIDER;
+    delete process.env.LOCAL_LLM_MODEL;
+    delete process.env.LOCAL_LLM_BASE_URL;
+  });
+  it("selects local, defaults to Ollama + qwen2.5:1.5b, sends no auth header and asks for JSON", async () => {
+    process.env.LLM_PROVIDER = "local";
+    const { resolveProviderId, providerPublicConfig } = await import("@/lib/llm");
+    const { localSettings, completeWithOpenAI } = await import("@/lib/llm/openai");
+    expect(resolveProviderId()).toBe("local");
+    expect(providerPublicConfig()).toEqual({ provider: "local", model: "qwen2.5:1.5b" });
+    const settings = localSettings();
+    expect(settings.baseURL).toBe("http://127.0.0.1:11434/v1");
+    let seen: { url: string; init: RequestInit } | null = null;
+    const fake = (async (url: string, init: RequestInit) => {
+      seen = { url, init };
+      return new Response(JSON.stringify({ choices: [{ message: { content: "{\"ok\":true}" } }] }), { status: 200 });
+    }) as unknown as typeof fetch;
+    expect(await completeWithOpenAI({ system: "s", user: "u" }, settings, fake)).toBe("{\"ok\":true}");
+    expect(seen!.url).toBe("http://127.0.0.1:11434/v1/chat/completions");
+    expect((seen!.init.headers as Record<string, string>).authorization).toBeUndefined();
+    expect(JSON.parse(String(seen!.init.body)).response_format).toEqual({ type: "json_object" });
+  });
+  it("agent backend resolves to local without any key", async () => {
+    process.env.LLM_PROVIDER = "local";
+    const { resolveAgentBackend, agentModelLabel } = await import("@/lib/agent/model");
+    expect(resolveAgentBackend()).toBe("local");
+    expect(agentModelLabel()).toBe("qwen2.5:1.5b");
+  });
+});

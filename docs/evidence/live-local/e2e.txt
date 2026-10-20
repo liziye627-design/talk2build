@@ -1,0 +1,15 @@
+maya_goal (Maya) wall=3924ms
+ whisper 1334 ms: Our goal today is to launch a weekly newsletter sign-up page for the Bakery by Friday.
+ kind: requirement | local qwen2.5:1.5b degraded: False | reply: Requirement logged: Our goal today is to launch a weekly newsletter sign-up page for the Bakery by Friday | err: None
+chris_decide (Chris) wall=7475ms
+ whisper 567 ms: Let's decide to use a simple static page with a form that posts to our existing mailing list.
+ kind: requirement | local qwen2.5:1.5b degraded: True | reply: Decision noted: Use a simple static page with a form that posts to our existing mailing list | err: None
+priya_action (Priya) wall=8211ms
+ whisper 509 ms: I will write the copy and send it to Chris by Wednesday.
+ kind: requirement | local qwen2.5:1.5b degraded: False | reply: Decision noted: Write copy for bakery newsletter | err: None
+chris_chatter (Chris) wall=4379ms
+ whisper 443 ms: By the way, did anyone watch the football game last night?
+ kind: chatter | local qwen2.5:1.5b degraded: False | reply: None | err: None
+maya_plan (Maya) wall=9738ms
+ whisper 480 ms: Please draft a plan for the signup page with the steps we need before Friday.
+ kind: decision | local qwen2.5:1.5b degraded: False | reply: None | err: None

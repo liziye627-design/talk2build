@@ -1,5 +1,6 @@
 "use client";
 
+import { createChunkedRecorder, DEFAULT_SEGMENT_MS, type RecorderLike } from "@/lib/transcribe/chunker";
 import { UI_LANG, ui } from "@/lib/ui-text";
 import { ASSISTANT_NAME } from "@/lib/branding";
 import { useCallback, useEffect, useRef, useState, type FormEvent, type RefObject } from "react";
@@ -97,7 +98,7 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const stopPlay = useRef(false);
   const recognition = useRef<SpeechRecognition | null>(null);
-  const recorder = useRef<MediaRecorder | null>(null);
+  const recorder = useRef<{ stop: () => void } | null>(null);
   const handledFinals = useRef(new Set<number>());
   const [serverStt, setServerStt] = useState<{ provider: string; available: boolean; note: string } | null>(null);
   const [interim, setInterim] = useState("");
@@ -258,7 +259,10 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
     }
   }
 
-  /** Server path: record until the mic is turned off, then send the clip to /transcribe (local Whisper). */
+  /**
+   * Server path: near-real-time. The mic is recorded in ~4 s self-contained segments; each segment is
+   * sent to /transcribe (local Whisper) while the next one records, so lines appear during speech.
+   */
   async function toggleServerMic() {
     if (listening && recorder.current) {
       recorder.current.stop();
@@ -272,21 +276,21 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
       return;
     }
     const who = speaker;
-    const chunks: Blob[] = [];
-    const rec = new MediaRecorder(stream);
-    recorder.current = rec;
-    rec.ondataavailable = (event) => {
-      if (event.data.size) chunks.push(event.data);
+    const chunked = createChunkedRecorder({
+      makeRecorder: () => new MediaRecorder(stream) as unknown as RecorderLike,
+      upload: (blob) => uploadChunk(blob, who),
+      segmentMs: Number(process.env.NEXT_PUBLIC_STT_SEGMENT_MS) || DEFAULT_SEGMENT_MS,
+    });
+    recorder.current = {
+      stop: () => {
+        chunked.stop();
+        stream.getTracks().forEach((track) => track.stop());
+        setListening(false);
+        setMicFlag(false);
+        recorder.current = null;
+      },
     };
-    rec.onstop = () => {
-      stream.getTracks().forEach((track) => track.stop());
-      setListening(false);
-      setMicFlag(false);
-      recorder.current = null;
-      const blob = new Blob(chunks, { type: rec.mimeType || "audio/webm" });
-      if (blob.size) void uploadChunk(blob, who);
-    };
-    rec.start();
+    chunked.start();
     setListening(true);
     setMicFlag(true);
   }

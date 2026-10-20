@@ -82,6 +82,7 @@ export function executeWorkTool(name: string, args: Record<string, unknown>): To
       artifactPath: path,
     });
     store.addTrace(id, { tool: name, ok: true, summary: drafted.summary });
+    if (!drafted.template) void redraftWithModel(id, drafted.title, text);
     return { ok: true, summary: drafted.summary, data: card };
   }
 
@@ -182,7 +183,66 @@ function relatedDecisions(text: string) {
   return hits;
 }
 
-function draftDesign(kind: string, text: string): { title: string; path: string; summary: string; body: string } {
+/**
+ * When a live model is configured (local, Bedrock, OpenAI-compatible), replace the instant sketch with
+ * a model-written design note for what was actually said. Without a model the sketch stays as is.
+ */
+async function redraftWithModel(id: string, title: string, text: string) {
+  try {
+    const { draftWithModel, resolveAgentBackend, agentModelLabel } = await import("@/lib/agent/model");
+    if (resolveAgentBackend() === "fixture") return;
+    const live = await draftWithModel(
+      "You are a software architect in a meeting. Write a short markdown design note (components, data flow, open questions) for exactly what was said. Do not invent URLs or facts that were not said.",
+      `Said in the meeting: ${text}`,
+    );
+    if (!live.text || live.text.trim().length < 40) return;
+    const path = writeNote(id, "docs/architecture.md", `${live.text.trim()}\n`);
+    upsert(id, { kind: "design", title, status: "ready", summary: `${title} drafted by ${agentModelLabel()}: ${text.slice(0, 90)}`, artifactPath: path });
+    getStore().addTrace(id, { tool: "design_draft", ok: true, summary: `Model draft written to ${path}` });
+  } catch {
+    // The instant sketch already stands; a failed redraft changes nothing.
+  }
+}
+
+function escapeXml(value: string) {
+  return value.replace(/[<>&"']/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;", "'": "&apos;" })[c]!);
+}
+
+function sketchSvg(text: string) {
+  const words = text.split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let line = "";
+  for (const word of words) {
+    if ((line + " " + word).trim().length > 60) {
+      lines.push(line.trim());
+      line = word;
+    } else line += ` ${word}`;
+  }
+  if (line.trim()) lines.push(line.trim());
+  const rows = lines.slice(0, 6).map((row, index) => `    <text x="32" y="${96 + index * 24}">${escapeXml(row)}</text>`).join("\n");
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="280" viewBox="0 0 640 280">
+  <rect width="640" height="280" fill="#10151c"/>
+  <g font-family="ui-sans-serif,system-ui" font-size="15" fill="#f3efe6">
+    <text x="32" y="56" font-size="18" fill="#e7b15a">Architecture sketch (from the room)</text>
+${rows}
+  </g>
+</svg>
+`;
+}
+
+function draftDesign(kind: string, text: string): { title: string; path: string; summary: string; body: string; template?: boolean } {
+  // The billing-export templates belong to the scripted demo meeting. Anything else gets a sketch of
+  // what was actually said (and a model redraft when a model is configured).
+  const demoDomain = /export|billing|invoice|nightly/i.test(text) || !text;
+  if (!demoDomain) {
+    const short = text.length > 90 ? `${text.slice(0, 87)}...` : text;
+    return { title: "Architecture", path: "design/architecture.svg", summary: `Architecture sketch: ${short}`, body: sketchSvg(text) };
+  }
+  return { ...draftDesignTemplate(kind, text), template: true };
+}
+
+function draftDesignTemplate(kind: string, text: string): { title: string; path: string; summary: string; body: string } {
   if (kind === "wireframe") {
     return {
       title: "Settings wireframe",

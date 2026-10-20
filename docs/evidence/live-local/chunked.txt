@@ -1,0 +1,4 @@
+seg0 at +4011ms: total 2675ms, whisper 480 ms | Okay, quick recap before we go, we agreed the sign up page. | kind: chatter degraded: False
+seg1 at +8012ms: total 17229ms, whisper 831 ms | ships on Friday. Priya owns the copy, Chris builds the | kind: chatter degraded: True
+seg2 at +25263ms: total 22171ms, whisper 3736 ms | and I will check the analytics on Monday to see how many people sign uhh alright okay so so so so so so so so so so so so so too so so | kind: requirement degraded: False
+seg3 at +47465ms: total 12919ms, whisper 901 ms | signed up. 8 8 8 8 8 8 8 8 8 8 9 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 | kind: requirement degraded: True

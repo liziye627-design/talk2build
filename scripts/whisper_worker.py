@@ -36,6 +36,11 @@ for line in sys.stdin:
     try:
         req = json.loads(line)
         audio = decode(req["path"])
+        if len(audio) < 2 * 16000:
+            # Very short chunks (e.g. the tail of a live recording) make Whisper loop ("8 8 8 ...").
+            # A second of silence on each side stops that without changing the words.
+            pad = np.zeros(16000, dtype=np.float32)
+            audio = np.concatenate([pad, audio, pad])
         lang = req.get("language") or None
         segs, info = model.transcribe(audio, language=lang, beam_size=5, vad_filter=True)
         segments = [{"start": round(s.start, 2), "end": round(s.end, 2), "text": s.text.strip()} for s in segs]

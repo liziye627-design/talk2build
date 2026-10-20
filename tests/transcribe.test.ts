@@ -23,10 +23,21 @@ describe("speech-to-text provider selection", () => {
     expect(sttStatus()).toMatchObject({ available: false });
     expect(sttStatus().note).toMatch(/TALK2BUILD_STT=whisper/);
   });
-  it("Amazon Transcribe is reserved and reported as not implemented", () => {
+  it("Amazon Transcribe without AWS credentials is unavailable and says what it needs", () => {
     process.env.TALK2BUILD_STT = "transcribe";
+    delete process.env.AWS_ACCESS_KEY_ID;
+    delete process.env.AWS_SECRET_ACCESS_KEY;
+    delete process.env.AWS_PROFILE;
+    delete process.env.AWS_BEARER_TOKEN_BEDROCK;
     expect(sttStatus()).toMatchObject({ provider: "amazon-transcribe", available: false });
-    expect(sttStatus().note).toMatch(/not implemented/);
+    expect(sttStatus().note).toMatch(/AWS credentials/);
+  });
+  it("Amazon Transcribe with credentials is selectable and marked unverified", () => {
+    process.env.TALK2BUILD_STT = "transcribe";
+    process.env.AWS_ACCESS_KEY_ID = "AKIDEXAMPLE";
+    process.env.AWS_SECRET_ACCESS_KEY = "example";
+    expect(sttStatus()).toMatchObject({ provider: "amazon-transcribe", available: true });
+    expect(sttStatus().note).toMatch(/Not yet verified/);
   });
 });
 

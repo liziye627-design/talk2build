@@ -42,9 +42,9 @@ The scripted game jam is the showcase, but the room also takes real speech. Both
 
 | Mode | How | Key needed |
 | --- | --- | --- |
-| Server, local Whisper | `TALK2BUILD_STT=whisper`. The mic button records until you click it again, then posts the clip to `POST /api/meetings/:id/transcribe?speaker=Maya`. A local [faster-whisper](https://github.com/SYSTRAN/faster-whisper) worker (`scripts/whisper_worker.py`) transcribes it | none |
+| Server, local Whisper | `TALK2BUILD_STT=whisper`. While the mic is on, audio is recorded in ~4 s self-contained segments (`NEXT_PUBLIC_STT_SEGMENT_MS`), and each one is posted to `POST /api/meetings/:id/transcribe?speaker=Maya` while the next records, so lines appear during speech. A local [faster-whisper](https://github.com/SYSTRAN/faster-whisper) worker (`scripts/whisper_worker.py`) transcribes them | none |
 | Browser, Web Speech API | Used when server transcription is off. Live interim captions; each final phrase becomes a turn. Availability depends on the browser (Chrome sends audio to its own speech service) | none |
-| Amazon Transcribe (streaming) | Reserved provider id `amazon-transcribe`. **Not implemented yet**; selecting it returns 501 with that message | AWS |
+| Amazon Transcribe (streaming) | `TALK2BUILD_STT=transcribe`. AWS SDK streaming (`src/lib/transcribe/amazon.ts`): ffmpeg → 16 kHz PCM → `StartStreamTranscription`. **Unverified live** (mock-tested only; no AWS credentials yet). Without credentials it returns 501 | AWS |
 
 Set up local Whisper once:
 
@@ -62,6 +62,19 @@ curl -s -X POST "http://127.0.0.1:43123/api/meetings/$MEETING/transcribe?speaker
 ```
 
 The response has the transcription (text, segments, latency) and the meeting turn it produced. `GET /api/stt` reports the active provider. Speaker attribution is manual for now (one speaker per clip, from the picker); diarization is future work.
+
+## Fully local, no keys (real model)
+
+Everything real, nothing scripted, no account: local Whisper for speech and a local model through any OpenAI-compatible server (Ollama or llama.cpp).
+
+```bash
+ollama serve &                       # or llama.cpp: llama-server -m model.gguf --port 11434
+ollama pull qwen2.5:1.5b             # or import a GGUF with `ollama create`
+LLM_PROVIDER=local TALK2BUILD_STT=whisper TALK2BUILD_WHISPER_PYTHON=$PWD/.venv-stt/bin/python \
+  MCP_DEMO_TOKEN=$(openssl rand -hex 16) TALK2BUILD_SESSION_SECRET=$(openssl rand -hex 24) npm start
+```
+
+`LOCAL_LLM_BASE_URL` (default `http://127.0.0.1:11434/v1`), `LOCAL_LLM_MODEL` (default `qwen2.5:1.5b`), `LOCAL_LLM_TIMEOUT_MS` (45000), `LOCAL_LLM_MAX_TOKENS` (512). The planner and the in-room agent both use it. Measured results, including what went wrong: [docs/live-local-check.md](docs/live-local-check.md). What is real vs scripted vs blocked by keys: [docs/reality-audit.md](docs/reality-audit.md).
 
 ## Production start
 
@@ -158,7 +171,7 @@ Small writes happen immediately. Scaffolding, test runs, issue creation, and pul
 
 Meeting turns still classify through `LLM_PROVIDER` (mock unless you set one). The **in-room agent** is separate. It picks a backend in this order:
 
-1. `TALK2BUILD_AGENT` if set (`bedrock`, `nebius`, `openai`, or `mock`)
+1. `TALK2BUILD_AGENT` if set (`bedrock`, `nebius`, `openai`, `local`, or `mock`)
 2. Otherwise `LLM_PROVIDER` when that is set
 3. Otherwise Bedrock when both `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` are set, or when `AWS_BEARER_TOKEN_BEDROCK` is set. One key alone is skipped, with a log line, and the agent falls through to Nebius, OpenAI, or the fixture model
 4. Otherwise Nebius when `NEBIUS_API_KEY` is present, or any OpenAI-compatible server when `OPENAI_API_KEY` is present
@@ -170,6 +183,7 @@ Meeting turns still classify through `LLM_PROVIDER` (mock unless you set one). T
 | `BEDROCK_MODEL_ID` | Bedrock model. Default `amazon.nova-lite-v1:0` |
 | `NEBIUS_API_KEY` | Nebius Token Factory. Default base URL `https://api.tokenfactory.nebius.com/v1` |
 | `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL` | Any OpenAI-compatible `/chat/completions` server, including a local stub |
+| `LLM_PROVIDER=local`, `LOCAL_LLM_BASE_URL`, `LOCAL_LLM_MODEL` | Local OpenAI-compatible server (Ollama, llama.cpp). No key. Verified live with `qwen2.5:1.5b` |
 | `TALK2BUILD_AGENT=mock` | Force the fixture model even if keys are set |
 | `TALK2BUILD_JOB_PACE_MS` | Delay between card updates. Tests force this to 0 |
 

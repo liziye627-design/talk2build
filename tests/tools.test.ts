@@ -89,3 +89,21 @@ describe("incident tools", () => {
     void timeline;
   });
 });
+
+describe("design_draft outside the scripted billing demo", () => {
+  beforeEach(() => {
+    resetStore();
+    delete process.env.LLM_PROVIDER;
+  });
+  it("sketches what was actually said instead of the billing-export template", () => {
+    const text = "A static signup page posts to the bakery mailing list";
+    const out = executeTool("design_draft", { meetingId: "design-real", speaker: "Chris", text });
+    expect(out.ok).toBe(true);
+    expect(out.summary).toBe(`Architecture sketch: ${text}`);
+    expect(out.summary).not.toMatch(/CSV|export/);
+  });
+  it("keeps the template for the scripted billing-export demo", () => {
+    const out = executeTool("design_draft", { meetingId: "design-demo", speaker: "Chris", text: "nightly billing export" });
+    expect(out.summary).toMatch(/export worker/);
+  });
+});

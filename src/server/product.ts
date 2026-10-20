@@ -18,7 +18,7 @@ import {
 import { enqueue } from "@/lib/mutex";
 import { emptyMeeting, getStore } from "@/lib/meeting-store";
 import { executeTool } from "@/lib/tools";
-import { providerPublicConfig } from "@/lib/llm";
+import { providerPublicConfig, resolveProviderId } from "@/lib/llm";
 import { readWorkspaceFile } from "@/lib/workspace";
 
 function json(body: unknown, status = 200) {
@@ -104,6 +104,7 @@ export function handleBootstrap() {
     workspaces: listWorkspaces().length > 0 ? listWorkspaces() : [desk],
     providers: [
       { id: "mock", label: "Mock", model: "Deterministic" },
+      { id: "local", label: "Local (Ollama)", model: process.env.LOCAL_LLM_MODEL || "qwen2.5:1.5b" },
       { id: "bedrock", label: "Bedrock", model: "amazon.nova-lite-v1:0" },
       { id: "nebius", label: "Nebius", model: "nvidia/Nemotron-3_5-Lightning" },
     ],
@@ -120,7 +121,7 @@ export async function handleThreads(request: Request) {
   const thread = createThread({
     title: typeof body.title === "string" ? body.title : "New task",
     workspaceId,
-    provider: typeof body.provider === "string" ? body.provider : "mock",
+    provider: typeof body.provider === "string" ? body.provider : resolveProviderId(),
   });
   return json({ thread }, 201);
 }
@@ -223,7 +224,7 @@ export async function handleMeetingsPost(request: Request) {
   const title = typeof body.title === "string" && body.title.trim() ? body.title.trim() : "Working session";
   const scenario = body.scenario === "incident" ? "incident" : "general";
   const host = typeof body.host === "string" && body.host.trim() ? body.host.trim() : "You";
-  const provider = typeof body.provider === "string" ? body.provider : "mock";
+  const provider = typeof body.provider === "string" ? body.provider : resolveProviderId();
   const team = Array.isArray(body.team) ? body.team.filter((name): name is string => typeof name === "string") : ["Maya", "Chris", "Priya"];
   const opened = executeTool("meeting_open", { title, scenario, host, team: scenario === "incident" ? [] : team });
   const data = opened.data as { meetingId: string };
@@ -246,7 +247,7 @@ export async function handleSchedule(request: Request) {
   meeting.status = "scheduled";
   meeting.scheduledFor = when || null;
   ensureWorkspace(meeting.workspaceId, title);
-  const thread = createThread({ title, workspaceId: meeting.workspaceId, meetingId: meeting.id, provider: "mock" });
+  const thread = createThread({ title, workspaceId: meeting.workspaceId, meetingId: meeting.id, provider: resolveProviderId() });
   meeting.threadId = thread.id;
   getStore().persist(meeting.id);
   return json({ meeting }, 201);
@@ -327,7 +328,7 @@ export function handleMeetingEnd(id: string) {
     cancelMeetingJobs(id);
     const meeting = getStore().ensure(id);
     if (!meeting.threadId) {
-      const thread = createThread({ title: meeting.title, workspaceId: meeting.workspaceId, meetingId: id, provider: "mock" });
+      const thread = createThread({ title: meeting.title, workspaceId: meeting.workspaceId, meetingId: id, provider: resolveProviderId() });
       meeting.threadId = thread.id;
       getStore().persist(id);
     }
