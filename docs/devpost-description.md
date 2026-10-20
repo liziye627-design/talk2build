@@ -14,7 +14,8 @@ A meeting agent for Alexa+: the team talks, and it turns their decisions into pl
 
 - Code: https://github.com/liziye627-design/talk2build (public, MIT)
 - Demo video (2:26): https://youtu.be/oLMys1SccUk
-- Run locally: Node.js 22+, then `npm install`, `npm test`, `npm run build`, `npm start`, and open http://127.0.0.1:43123. Mock mode needs no API keys. See the README for the production environment variables.
+- Run locally: follow the README's **For judges** section (Node.js 22+, `npm install`, `npm test`, `npm run build`, `npm start`), open http://127.0.0.1:43123, click **Start meeting**, then **More → Play the pizza game jam (v2 demo)** to replay the video's meeting. No API keys needed.
+- Real speech: start with `TALK2BUILD_STT=whisper` (local faster-whisper, no key) and use the mic button. See README → Live transcription.
 
 ## Inspiration
 
@@ -31,16 +32,18 @@ Talk2Build is a meeting room with an agent panel. The demo case is a pizza-deadl
 - **Feasibility check.** "Check that it's feasible on a phone" produces a feasibility card.
 - **A human-yes gate.** Anything that writes code waits for a spoken "Yes". After Maya says yes, Talk2Build writes `docs/spec.md` from the meeting's decisions, scaffolds the prototype from its game-jam template, and runs the real `node --test` suite (7 of 7 pass). Progress shows on the card.
 - **Playable in the meeting.** The prototype runs in a sandboxed iframe on the shared stage (strict CSP, scripts only). In the video it is played: dodge asteroids, grab pizza for fuel, and every ten parcels the asteroids speed up.
+- **Real speech, not only scripts.** The mic feeds the same pipeline. With `TALK2BUILD_STT=whisper`, a clip is transcribed by a local faster-whisper worker (no API key) at `POST /api/meetings/:id/transcribe`. Without it, the browser's Web Speech API gives live captions. Each line keeps its speaker (from the Speaking-as picker) and is tagged with how it arrived. A recorded "Goal for this meeting…" clip, transcribed by Whisper, lands as Maya's turn and opens the Plan card, and spoken chatter is parked.
 - **Minutes and files stay.** Ending the meeting writes minutes. The spec, designs, prototype and test file stay in the meeting's workspace.
 
 The UI is English by default, through a small zh/en dictionary (`NEXT_PUBLIC_UI_LANG=zh` switches to Chinese). The voice input still understands Chinese trigger phrases.
 
-**Honest scope.** The demo runs in mock mode (`LLM_PROVIDER=mock`, `TALK2BUILD_AGENT=mock`). The meeting lines are scripted, and agent output comes from deterministic fixtures, so no model is called. The Space Cat Courier game comes from a template written ahead of time: the meeting selects it and fills the spec, but it is not generated live. The video, the spec and the in-game footer all say so. The evidence numbers and the test run are real. The gameplay in the video is driven by a scripted keyboard bot.
+**Honest scope.** The video's meeting is scripted (the same script is behind the **Play the pizza game jam** button), and real-speech mode was added afterwards and is not shown in the video. The demo runs in mock mode (`LLM_PROVIDER=mock`, `TALK2BUILD_AGENT=mock`). The meeting lines are scripted, and agent output comes from deterministic fixtures, so no model is called. The Space Cat Courier game comes from a template written ahead of time: the meeting selects it and fills the spec, but it is not generated live. The video, the spec and the in-game footer all say so. The evidence numbers and the test run are real. The gameplay in the video is driven by a scripted keyboard bot.
 
 ## How we built it
 
 - **Alexa+ path:** a self-hosted MCP server, protocol `2025-11-25`, over Streamable HTTP at `/mcp` (POST/GET/DELETE, `MCP-Session-Id`, JSON or SSE responses). The browser uses a simulated Alexa+ client (`src/alexa/client.ts`) that initializes a session and calls the same tools over HTTP, which is the simulated-experience path the rules allow. `alexa/addon-package/addon.json` is the add-on manifest for a real Alexa+ client. We did not deploy it, because the add-on tools are partner preview only.
 - **Tools:** plan, design drafts (SVG), feasibility checks, research and evidence (live GitHub and npm APIs, cached for 10 minutes), `scaffold_code` and `run_tests` (spawns `node --test`), behind a confirmation gate.
+- **Speech-to-text:** a provider interface (`src/lib/transcribe`) with local Whisper (a persistent faster-whisper worker that decodes any format via ffmpeg) and the browser Web Speech API. Amazon Transcribe streaming is a reserved provider, not yet implemented.
 - **Planner:** a pluggable model layer, with three providers:
   - deterministic mock (the default, used in the demo);
   - Amazon Bedrock Converse through `@aws-sdk/client-bedrock-runtime` (`LLM_PROVIDER=bedrock`, default model `amazon.nova-lite-v1:0`);
@@ -73,11 +76,12 @@ The UI is English by default, through a small zh/en dictionary (`NEXT_PUBLIC_UI_
 
 - Run the Bedrock planner live (Nova Lite) instead of the mock, and measure latency against the Alexa+ budget.
 - Deploy the add-on to a real Alexa+ client once the tools are available.
-- Speaker identification instead of scripted speakers, and generating prototypes beyond the game-jam template.
+- Amazon Transcribe streaming as a speech provider (with AWS credentials), streaming chunks instead of whole clips, and speaker diarization instead of the manual Speaking-as picker.
+- Generating prototypes beyond the game-jam template.
 
 ## Built with
 
-typescript, next.js, react, tailwind-css, node.js, sqlite, model-context-protocol, alexa-plus, amazon-bedrock, aws-sdk, vitest, playwright, svg, html5-canvas, github-api, npm-registry-api, ffmpeg, kokoro-tts
+typescript, next.js, faster-whisper, web-speech-api, python, react, tailwind-css, node.js, sqlite, model-context-protocol, alexa-plus, amazon-bedrock, aws-sdk, vitest, playwright, svg, html5-canvas, github-api, npm-registry-api, ffmpeg, kokoro-tts
 
 ## Track and mini challenges
 

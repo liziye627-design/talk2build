@@ -21,6 +21,7 @@ import type {
   TodoItem,
   ToolTraceEntry,
   TranscriptEntry,
+  TranscriptSource,
 } from "@/lib/types";
 
 function now() {
@@ -129,6 +130,19 @@ export class MeetingStore {
     state.transcript.push(entry);
     this.touch(state);
     return entry;
+  }
+
+  stampSource(id: string, text: string, source: TranscriptSource) {
+    const state = this.ensure(id);
+    for (let index = state.transcript.length - 1; index >= 0; index -= 1) {
+      const line = state.transcript[index];
+      if (line && line.speaker !== "Alexa" && line.text === text) {
+        line.source = source;
+        this.touch(state);
+        return line;
+      }
+    }
+    return null;
   }
 
   stampKind(id: string, text: string, kind: string) {

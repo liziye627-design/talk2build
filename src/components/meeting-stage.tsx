@@ -1,6 +1,6 @@
 "use client";
 
-import { ui } from "@/lib/ui-text";
+import { UI_LANG, ui } from "@/lib/ui-text";
 import { ASSISTANT_NAME } from "@/lib/branding";
 import { useCallback, useEffect, useRef, useState, type FormEvent, type RefObject } from "react";
 import Link from "next/link";
@@ -26,7 +26,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { DEMO_SCRIPT } from "@/lib/demo-script";
 import { GAME_JAM_SCRIPT, PLANNING_SCRIPT, type PlanningBeat } from "@/lib/planning-script";
 import { isInterrupt } from "@/lib/classifier";
-import type { MeetingState } from "@/lib/types";
+import type { MeetingState, TranscriptSource } from "@/lib/types";
 
 interface TurnResponse {
   reply: string | null;
@@ -97,6 +97,18 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const stopPlay = useRef(false);
   const recognition = useRef<SpeechRecognition | null>(null);
+  const recorder = useRef<MediaRecorder | null>(null);
+  const handledFinals = useRef(new Set<number>());
+  const [serverStt, setServerStt] = useState<{ provider: string; available: boolean; note: string } | null>(null);
+  const [interim, setInterim] = useState("");
+  const [transcribing, setTranscribing] = useState(false);
+
+  useEffect(() => {
+    void fetch("/api/stt")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((status) => setServerStt(status))
+      .catch(() => setServerStt(null));
+  }, []);
 
   const refresh = useCallback(async () => {
     const response = await fetch(`/api/meetings/${meetingId}`);
@@ -124,11 +136,11 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
     }
   }, [meeting?.incidentDiff, meeting?.pullRequest, meeting?.scenario]);
 
-  async function say(text: string, who = speaker) {
+  async function say(text: string, who = speaker, source: TranscriptSource = "typed") {
     const response = await fetch(`/api/meetings/${meetingId}/utterance`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ text, speaker: who }),
+      body: JSON.stringify({ text, speaker: who, source }),
     });
     const body = (await response.json()) as TurnResponse;
     if (!response.ok) throw new Error(body.error || "The room could not hear that.");
@@ -163,7 +175,7 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
     try {
       for (const beat of script) {
         if (stopPlay.current) break;
-        await say(beat.text, beat.speaker);
+        await say(beat.text, beat.speaker, "script");
         await wait(350);
       }
     } catch (reason) {
@@ -182,7 +194,7 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
     try {
       for (const beat of DEMO_SCRIPT.beats) {
         if (stopPlay.current) break;
-        await say(beat.text, beat.speaker);
+        await say(beat.text, beat.speaker, "script");
         await wait(400);
       }
     } catch (reason) {
@@ -217,38 +229,126 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
     }
   }
 
-  function toggleMic() {
-    const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!Speech) {
-      setError("This browser has no speech recognition.");
+  function setMicFlag(micOn: boolean) {
+    void fetch(`/api/meetings/${meetingId}/mic`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ label: speaker, micOn }),
+    });
+  }
+
+  async function uploadChunk(blob: Blob, who: string) {
+    setTranscribing(true);
+    try {
+      const params = new URLSearchParams({ speaker: who });
+      if (UI_LANG === "en") params.set("language", "en");
+      const response = await fetch(`/api/meetings/${meetingId}/transcribe?${params}`, {
+        method: "POST",
+        headers: { "content-type": blob.type || "audio/webm" },
+        body: blob,
+      });
+      const body = (await response.json()) as { error?: string; state?: MeetingState; turn?: TurnResponse | null };
+      if (!response.ok) throw new Error(body.error || ui.stage.transcribeFailed);
+      if (body.state) setMeeting(body.state);
+      if (body.turn?.reply) await speak(body.turn.reply);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : ui.stage.transcribeFailed);
+    } finally {
+      setTranscribing(false);
+    }
+  }
+
+  /** Server path: record until the mic is turned off, then send the clip to /transcribe (local Whisper). */
+  async function toggleServerMic() {
+    if (listening && recorder.current) {
+      recorder.current.stop();
       return;
     }
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch {
+      setError(ui.stage.micDenied);
+      return;
+    }
+    const who = speaker;
+    const chunks: Blob[] = [];
+    const rec = new MediaRecorder(stream);
+    recorder.current = rec;
+    rec.ondataavailable = (event) => {
+      if (event.data.size) chunks.push(event.data);
+    };
+    rec.onstop = () => {
+      stream.getTracks().forEach((track) => track.stop());
+      setListening(false);
+      setMicFlag(false);
+      recorder.current = null;
+      const blob = new Blob(chunks, { type: rec.mimeType || "audio/webm" });
+      if (blob.size) void uploadChunk(blob, who);
+    };
+    rec.start();
+    setListening(true);
+    setMicFlag(true);
+  }
+
+  /** Browser path: Web Speech API live captions; each final phrase becomes a meeting turn. */
+  function toggleBrowserMic(Speech: SpeechRecognitionConstructor) {
     if (listening && recognition.current) {
       recognition.current.stop();
       setListening(false);
-      void fetch(`/api/meetings/${meetingId}/mic`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ label: speaker, micOn: false }),
-      });
+      setInterim("");
+      setMicFlag(false);
       return;
     }
     const session = new Speech();
     recognition.current = session;
-    session.lang = "en-US";
+    session.lang = UI_LANG === "zh" ? "zh-CN" : "en-US";
+    session.continuous = true;
+    session.interimResults = true;
     session.onresult = (event) => {
-      const said = event.results[0]?.[0]?.transcript ?? "";
-      if (said) void say(said).catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "Mic failed."));
+      let partial = "";
+      for (let index = 0; index < event.results.length; index += 1) {
+        const result = event.results[index] as SpeechRecognitionResult & { isFinal?: boolean };
+        const said = result?.[0]?.transcript?.trim() ?? "";
+        if (!said) continue;
+        if (result.isFinal) {
+          if (!handledFinals.current.has(index)) {
+            handledFinals.current.add(index);
+            void say(said, speaker, "web-speech").catch((reason: unknown) => setError(reason instanceof Error ? reason.message : ui.stage.transcribeFailed));
+          }
+        } else {
+          partial = said;
+        }
+      }
+      setInterim(partial);
     };
-    session.onend = () => setListening(false);
-    session.onerror = () => setListening(false);
+    session.onend = () => {
+      setListening(false);
+      setInterim("");
+      handledFinals.current.clear();
+    };
+    session.onerror = (event) => {
+      setListening(false);
+      setInterim("");
+      if (event.error && event.error !== "aborted" && event.error !== "no-speech") setError(`${ui.stage.transcribeFailed} (${event.error})`);
+    };
+    handledFinals.current.clear();
     setListening(true);
-    void fetch(`/api/meetings/${meetingId}/mic`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ label: speaker, micOn: true }),
-    });
+    setMicFlag(true);
     session.start();
+  }
+
+  function toggleMic() {
+    if (serverStt?.available && typeof MediaRecorder !== "undefined") {
+      void toggleServerMic();
+      return;
+    }
+    const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!Speech) {
+      setError(ui.stage.noSpeech);
+      return;
+    }
+    toggleBrowserMic(Speech);
   }
 
   async function endMeeting() {
@@ -357,6 +457,12 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
           </div>
           {sharing ? <p className="pointer-events-none absolute left-3 top-3 rounded bg-[#006fff] px-2 py-1 text-xs">{ui.stage.sharing}</p> : null}
           <div style={drawer !== "none" ? { right: "19rem" } : undefined} className="pointer-events-none absolute inset-x-4 bottom-3 max-h-14 overflow-hidden rounded bg-black/55 px-3 py-2" data-testid="captions">
+            {interim || transcribing ? (
+              <p className="text-sm italic leading-6 text-white/70" data-testid="live-caption">
+                <span className="mr-2 text-xs text-[#7eb6ff]">{displaySpeaker(speaker)}</span>
+                {interim || ui.stage.transcribing}
+              </p>
+            ) : null}
             {captions.length === 0 ? (
               <p className="text-sm text-white/50">{ui.stage.captionsEmpty}</p>
             ) : (
@@ -393,6 +499,11 @@ export function MeetingStage({ meetingId }: { meetingId: string }) {
                       <p key={line.id} className="text-sm leading-6">
                         <span className="mr-2 text-xs text-[#006fff]">{displaySpeaker(line.speaker)}</span>
                         {line.text}
+                        {line.source === "whisper-local" || line.source === "web-speech" || line.source === "amazon-transcribe" ? (
+                          <span className="ml-1 rounded bg-[#eef3ff] px-1 text-[10px] text-[#3a5ccc]" data-testid="transcript-source">
+                            {ui.stage.sources[line.source]}
+                          </span>
+                        ) : null}
                       </p>
                     ))}
                   </div>

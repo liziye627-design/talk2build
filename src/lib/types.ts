@@ -26,7 +26,12 @@ export interface TranscriptEntry {
   text: string;
   at: string;
   kind?: string;
+  /** How the line reached the room: typed, browser speech, server transcription, or a demo script. */
+  source?: TranscriptSource;
 }
+
+export type TranscriptSource = "typed" | "web-speech" | "whisper-local" | "amazon-transcribe" | "script";
+export const TRANSCRIPT_SOURCES: TranscriptSource[] = ["typed", "web-speech", "whisper-local", "amazon-transcribe", "script"];
 
 export interface RedisSample {
   t: string;

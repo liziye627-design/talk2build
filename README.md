@@ -36,6 +36,33 @@ curl -si http://127.0.0.1:43123/mcp -H "authorization: Bearer $TOKEN" -H 'conten
 
 Honest scope: by default the demo runs in mock mode. Meeting turns are planned deterministically and agent output comes from recorded fixtures, so no model is called. The game comes from a template written ahead of time; the meeting picks it and the spec is generated from the meeting. The evidence numbers and the test run are real. Bedrock is wired in (`src/lib/llm/bedrock.ts`) and runs when you supply AWS credentials; see **Live Amazon Bedrock** below.
 
+## Live transcription (real speech)
+
+The scripted game jam is the showcase, but the room also takes real speech. Both paths feed the same meeting-turn pipeline as typed lines, with the speaker taken from the **Speaking as** picker. Each transcript line is tagged with how it arrived (`mic · Whisper`, `mic · browser`).
+
+| Mode | How | Key needed |
+| --- | --- | --- |
+| Server, local Whisper | `TALK2BUILD_STT=whisper`. The mic button records until you click it again, then posts the clip to `POST /api/meetings/:id/transcribe?speaker=Maya`. A local [faster-whisper](https://github.com/SYSTRAN/faster-whisper) worker (`scripts/whisper_worker.py`) transcribes it | none |
+| Browser, Web Speech API | Used when server transcription is off. Live interim captions; each final phrase becomes a turn. Availability depends on the browser (Chrome sends audio to its own speech service) | none |
+| Amazon Transcribe (streaming) | Reserved provider id `amazon-transcribe`. **Not implemented yet**; selecting it returns 501 with that message | AWS |
+
+Set up local Whisper once:
+
+```bash
+python3 -m venv .venv-stt && .venv-stt/bin/pip install faster-whisper numpy   # ffmpeg must be on PATH
+TALK2BUILD_STT=whisper TALK2BUILD_WHISPER_PYTHON=$PWD/.venv-stt/bin/python npm start
+# optional: TALK2BUILD_WHISPER_MODEL=small.en (default base.en; the model downloads on first use)
+```
+
+Send a recorded clip without a browser:
+
+```bash
+curl -s -X POST "http://127.0.0.1:43123/api/meetings/$MEETING/transcribe?speaker=Maya&language=en" \
+  -H 'content-type: audio/wav' --data-binary @line.wav
+```
+
+The response has the transcription (text, segments, latency) and the meeting turn it produced. `GET /api/stt` reports the active provider. Speaker attribution is manual for now (one speaker per clip, from the picker); diarization is future work.
+
 ## Production start
 
 `npm run dev` is for development only. For demos, recordings and judging, use the production build:

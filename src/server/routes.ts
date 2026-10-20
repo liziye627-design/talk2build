@@ -313,8 +313,22 @@ export async function routeHttp(request: Request): Promise<Response> {
     if (action === "utterance" && request.method === "POST") {
       const body = (await request.json()) as Record<string, unknown>;
       const payload = { ...body, meetingId: id };
-      return handleTurn(new Request(request.url, { method: "POST", headers: request.headers, body: JSON.stringify(payload) }));
+      const response = await handleTurn(new Request(request.url, { method: "POST", headers: request.headers, body: JSON.stringify(payload) }));
+      if (response.ok && typeof body.text === "string") {
+        const { stampSource } = await import("@/server/transcribe");
+        stampSource(id, body.text, body.source);
+      }
+      return response;
     }
+  }
+  const meetingTranscribe = pathname.match(/^\/api\/meetings\/([^/]+)\/transcribe$/);
+  if (meetingTranscribe && request.method === "POST") {
+    const { handleMeetingTranscribe } = await import("@/server/transcribe");
+    return handleMeetingTranscribe(request, decodeURIComponent(meetingTranscribe[1] || ""));
+  }
+  if (pathname === "/api/stt" && request.method === "GET") {
+    const { handleSttConfig } = await import("@/server/transcribe");
+    return handleSttConfig();
   }
   const jobCancel = pathname.match(/^\/api\/meetings\/([^/]+)\/jobs\/([^/]+)\/cancel$/);
   if (jobCancel && request.method === "POST") {
